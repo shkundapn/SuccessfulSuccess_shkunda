@@ -67,6 +67,8 @@ Resources:
       # before real traffic arrives.
       EmailConfiguration:
         EmailSendingAccount: COGNITO_DEFAULT
+      LambdaConfig:
+        PreSignUp: !GetAtt PreSignUpFunction.Arn
       UserPoolTags:
         PROJECT_NAME: !Ref ProjectName
 
@@ -126,6 +128,41 @@ Resources:
       AllowedOAuthScopes: [openid, email, profile]
       CallbackURLs: !Ref AppUrls
       LogoutURLs: !Ref AppUrls
+
+  PreSignUpRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  PreSignUpFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-auto-confirm"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt PreSignUpRole.Arn
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              event['response']['autoConfirmUser'] = True
+              event['response']['autoVerifyEmail'] = True
+              return event
+
+  PreSignUpPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PreSignUpFunction
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
 
 Outputs:
   UserPoolId:
