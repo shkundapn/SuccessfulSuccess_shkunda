@@ -1,142 +1,168 @@
-# Spry / SuccessfulSuccess — Project Context & Support Guide
+# Spry / SuccessfulSuccess — Complete Deployment & Operations Guide
 
-This file provides full context and status of the project so that any subsequent session or agent can immediately resume work without re-discovering the setup.
-
----
-
-## 1. Project Background & Course Labs
-
-This project is the **Spry / SuccessfulSuccess** meetings management application across three university course labs:
-
-- **Lab 1 — The Monorepo Foundation:**
-  - Structure: Monorepo containing `backend/`, `frontend/`, and `infra/`.
-  - Backend: FastAPI, SQLAlchemy 2 (async), Alembic for migrations, PostgreSQL 17.
-  - Frontend: Next.js 16 (App Router) + shadcn/ui + Tailwind CSS.
-  - Local startup: Runs with a single command: `docker compose up --build`.
-
-- **Lab 2 — Classic AWS Deployment:**
-  - Deployed via ECS Fargate task behind an Application Load Balancer (ALB), an RDS PostgreSQL (`db.t3.micro`) database, and S3 + CloudFront for static frontend.
-  - Bill: Around $52/month idle due to ALB, public IPv4 addresses, and continuous compute.
-
-- **Lab 3 — Serverless Migration & Cognito Authentication (CURRENT STATE):**
-  - **Compute:** Fargate + ALB replaced with **AWS Lambda container image** via **Function URL** (`https://<id>.lambda-url.us-east-1.on.aws`) using [Mangum](https://github.com/Kludex/mangum). Idle cost = $0.
-  - **Database:** RDS replaced with **Aurora Serverless v2** PostgreSQL (0–1 ACU, pauses after 5 idle minutes).
-  - **Frontend:** Private S3 bucket + CloudFront with Origin Access Control (OAC), WAF web ACL, subscribed to CloudFront Free Plan ($0/month). Clean URLs handled via CloudFront Function.
-  - **Auth:** AWS Cognito User Pool (`infra/auth.yml`): Managed login version 2, self sign-up, email verification, PKCE flow via `@tanstack/react-query` and AWS Amplify / OIDC in Next.js.
-  - **API Token Verification:** Backend verifies Cognito JWT access tokens using cached JWKS (`backend/app/auth.py`).
-  - **Region:** Single region: `us-east-1`.
+> **Quick Context for Agents & Engineers:**  
+> This file is the single source of truth for the **SuccessfulSuccess (Spry)** project for student Petro Shkunda (`shkunda.pn@ucu.edu.ua`).  
+> Reading this document gives full context on architecture decisions, active AWS infrastructure, configurations, submission assets, and operational commands.
 
 ---
 
-## 2. Local Environment & Toolchain State
+## 1. Executive Summary & Lab Submission Package
 
-All tools have been installed in the user's profile and permanently added to the User `PATH` environment variable:
+### 1.1 Course Submission Details
+* **Repository:** [https://github.com/shkundapn/SuccessfulSuccess_shkunda](https://github.com/shkundapn/SuccessfulSuccess_shkunda)
+* **Frontend Custom Domain:** [https://successfulsuccess.pp.ua](https://successfulsuccess.pp.ua)
+* **Dedicated Login URL:** [https://successfulsuccess.pp.ua/login/](https://successfulsuccess.pp.ua/login/)
+* **Direct CloudFront Fallback URL:** [https://d1lbnhcst4jnzp.cloudfront.net](https://d1lbnhcst4jnzp.cloudfront.net)
+* **Backend API Base URL (Lambda Function URL):** [https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws](https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws)
+* **Interactive Swagger UI:** [https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws/docs](https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws/docs)
+* **API Health Check:** [https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws/health](https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws/health)
 
-| Tool | Version | Path / Location | Status |
-|---|---|---|---|
-| **Git** | `2.55.0` | `C:\Users\StockPC\AppData\Local\Programs\Git\cmd\git.exe` | Ready |
-| **GitHub CLI (`gh`)** | `2.101.0` | `C:\Users\StockPC\AppData\Local\Programs\gh\bin\gh.exe` | Ready (needs `gh auth login` or manual fork) |
-| **Node.js** | `v24.21.0` | `C:\Users\StockPC\AppData\Local\Programs\nodejs\node.exe` | Ready |
-| **npm** | `11.19.0` | `C:\Users\StockPC\AppData\Local\Programs\nodejs\npm.cmd` | Ready (PowerShell RemoteSigned policy set) |
-| **Python** | `3.14.7` | `C:\Users\StockPC\AppData\Local\Python\pythoncore-3.14-64\python.exe` | Ready |
-| **AWS CLI** | `1.46.1` | `C:\Users\StockPC\AppData\Local\Python\pythoncore-3.14-64\Scripts\aws.cmd` | Ready |
-| **Docker Desktop** | Not installed / Not running | Needs Docker Desktop installed on Windows | Required for local `docker compose` & Lambda image build |
+### 1.2 Key Commits for Evaluation
+* **Commit Adding Cognito & Infrastructure:**  
+  [`557c76efaa810a1fb5a89aa54158bc7239816c98`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/557c76efaa810a1fb5a89aa54158bc7239816c98)  
+  *(Adds `infra/auth.yml`, `frontend/components/auth-page.tsx`, `frontend/lib/auth.ts`, and backend JWT token verification)*
+* **Commit Adding Pre-Sign-Up Auto-Confirm Lambda Trigger:**  
+  [`ecd05924184a02094113bb7cec873e2429d713ac`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/ecd05924184a02094113bb7cec873e2429d713ac)
+* **Commit Enabling Google Sign-In & Inlined Defaults:**  
+  [`dc0ee555525c816f36ac2c867700ab83c0f171ce`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/dc0ee555525c816f36ac2c867700ab83c0f171ce)
+* **Commit Adding Dedicated `/login/` Route:**  
+  [`3c95237894a4c6a9a08404a80ce05f5ceb0f0254`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/3c95237894a4c6a9a08404a80ce05f5ceb0f0254)
 
 ---
 
-## 3. Repository Layout & Key Files
+## 2. Deployed AWS Infrastructure & Architecture
 
-Current working directory: `C:\Users\StockPC\Desktop\shkunda_work\oles_viber_code`
+All resources are deployed in region **`us-east-1`** under AWS Account **`783216615378`** with project prefix **`spry-shkunda`**.
 
-```text
-oles_viber_code/
-├── backend/
-│   ├── app/
-│   │   ├── api/          # FastAPI routers (/api/v1/meetings, /api/v1/users, /api/v1/me)
-│   │   ├── auth.py       # Cognito JWT verification & cached JWKS
-│   │   ├── config.py     # Pydantic Settings
-│   │   ├── lambda_handler.py # Mangum handler for AWS Lambda & direct migration invocation
-│   │   ├── models/       # SQLAlchemy ORM models (User, Meeting, Participant)
-│   │   ├── repositories/ # Database query operations
-│   │   ├── schemas/      # Pydantic request/response schemas
-│   │   └── services/     # Business logic
-│   ├── migrations/       # Alembic migrations (0001_init, 0002_users_and_meeting_owner)
-│   ├── tests/            # Pytest test suite
-│   ├── Dockerfile        # Local development / compose container
-│   ├── Dockerfile.lambda # AWS Lambda container image
-│   └── pyproject.toml    # Python dependencies (fastapi, mangum, sqlalchemy, pyjwt)
-├── frontend/
-│   ├── app/              # Next.js App Router ((app)/meetings, /today, /login)
-│   ├── components/       # shadcn/ui components, auth-provider, user-menu, require-auth
-│   ├── lib/              # api.ts (HTTP client with Bearer token), auth.ts
-│   ├── Dockerfile        # Production / compose build
-│   └── package.json      # Dependencies (next 16, react 19, aws-amplify, tailwind 4)
-├── infra/
-│   ├── auth.yml          # CloudFormation: Cognito UserPool, UserPoolClient, ManagedLogin
-│   ├── backend.yml       # CloudFormation: Lambda Function URL, Aurora Serverless v2, SG, IAM
-│   ├── frontend.yml      # CloudFormation: S3 bucket, CloudFront, OAC, WAF Web ACL
-│   ├── ecr.yml           # CloudFormation: ECR Repository for backend Lambda container
-│   └── certificate.sh    # ACM certificate request and validation helper
-├── .env.example          # Template for environment variables
-├── .env                  # Local config (created, ready for user credentials)
-├── docker-compose.yml    # Compose definition: postgres, backend, frontend
-├── Makefile              # Deployment and task automation targets
-├── README.md             # Comprehensive project documentation and guides
-├── SPEC.md               # API, UI, and data model specification
-└── SUPPORT_GUIDE.md      # This file
+```
+                           ┌───────────────────────────────────────────────┐
+                           │   CloudFront CDN (EC75YMH5NWA7D)              │
+                           │   - https://successfulsuccess.pp.ua           │
+                           │   - https://d1lbnhcst4jnzp.cloudfront.net     │
+                           └───────────────────────┬───────────────────────┘
+                                                   │
+                          ┌────────────────────────┴────────────────────────┐
+                          ▼                                                 ▼
+             ┌─────────────────────────┐                       ┌─────────────────────────┐
+             │ Private S3 Static Bucket│                       │   AWS Cognito UserPool  │
+             │ Next.js App Router Out  │                       │   us-east-1_dLIUUyTHp   │
+             │ (/login, /today, etc.)  │                       │   (Cognito + Google IDP)│
+             └─────────────────────────┘                       └────────────┬────────────┘
+                                                                            │ (JWT Token)
+                                                                            ▼
+                                                               ┌─────────────────────────┐
+                                                               │ AWS Lambda Backend API  │
+                                                               │ (Container Image on ECR)│
+                                                               └────────────┬────────────┘
+                                                                            │
+                                                                            ▼
+                                                               ┌─────────────────────────┐
+                                                               │ Amazon RDS PostgreSQL   │
+                                                               │ db.t4g.micro (Free Tier)│
+                                                               └─────────────────────────┘
+```
+
+### 2.1 Amazon Cognito (`spry-shkunda-auth`)
+* **User Pool ID:** `us-east-1_dLIUUyTHp`
+* **App Client ID:** `6s22d1p7brc05pss5gpkuvalnv`
+* **Cognito OAuth Domain:** `spry-shkunda-783216615378.auth.us-east-1.amazoncognito.com`
+* **Google Identity Provider:** Enabled (`SupportedIdentityProviders: [COGNITO, Google]`)
+* **Google Redirect Callback:**  
+  `https://spry-shkunda-783216615378.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`
+* **Allowed Callback & Sign-out URLs:**  
+  - `https://successfulsuccess.pp.ua/`
+  - `https://d1lbnhcst4jnzp.cloudfront.net/`
+  - `http://localhost:3000/`
+* **Self Sign-Up:** Active (`AllowAdminCreateUserOnly: false`).
+* **Pre-Sign-Up Lambda Trigger:** `spry-shkunda-auto-confirm` automatically marks all new signups as confirmed (`autoConfirmUser: true`, `autoVerifyEmail: true`), eliminating university firewall email delivery delays.
+
+### 2.2 Backend & Database (`spry-shkunda-backend`)
+* **Database:** Amazon RDS PostgreSQL 17 (`spry-shkunda-db`), instance class `db.t4g.micro`, 20 GB gp3 storage.
+  - *Engineering Decision Note:* The original template used Aurora Serverless v2. The user's AWS account is flagged as a restricted "Free Plan" which requires `WithExpressConfiguration` (unsupported by CloudFormation). We swapped to standard RDS PostgreSQL `db.t4g.micro`, which is **100% Free Tier (750 free hours/month)** and creates zero billing overhead.
+  - Endpoint: `spry-shkunda-db.c8jy8sci8vi3.us-east-1.rds.amazonaws.com:5432`
+* **Compute:** AWS Lambda `spry-shkunda-backend` running Mangum + FastAPI in Docker container.
+* **Function URL:** `https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws`
+* **ECR Repository:** `783216615378.dkr.ecr.us-east-1.amazonaws.com/spry-shkunda-backend:latest`
+* **Migrations:** Database schema migrations applied via Alembic (`{"status": "migrated"}`).
+
+### 2.3 Frontend & CDN (`spry-shkunda-frontend`)
+* **CloudFront Distribution ID:** `EC75YMH5NWA7D`
+* **CloudFront Domain:** `d1lbnhcst4jnzp.cloudfront.net`
+* **S3 Static Bucket:** `spry-shkunda-frontend-783216615378`
+* **ACM SSL Certificate:** `arn:aws:acm:us-east-1:783216615378:certificate/82a1b3ba-0576-4de2-bde0-2933e4d08f9a` (Status: `ISSUED` for `successfulsuccess.pp.ua`).
+* **Custom Domain DNS:** Managed at `nic.ua`:
+  - `successfulsuccess.pp.ua` CNAME `d1lbnhcst4jnzp.cloudfront.net`
+
+---
+
+## 3. Cost & Free Tier Tracking
+
+**Total Current Cost: $0.00**
+
+| Component | AWS Resource | Free Tier Status |
+|---|---|---|
+| **Database** | RDS PostgreSQL `db.t4g.micro` | 750 free hours/month + 20 GB free storage |
+| **Compute** | AWS Lambda | 1,000,000 requests/month free forever |
+| **CDN** | CloudFront | 1 TB data transfer + 10M requests free forever |
+| **Auth** | Amazon Cognito | 50,000 monthly active users free forever |
+| **Storage** | S3 (~5 MB) | 5 GB standard storage free |
+| **SSL** | AWS Certificate Manager | 100% free for all public certificates |
+| **Container Registry**| Amazon ECR (~250 MB) | 500 MB private storage free |
+| **NAT Gateways** | *None deployed* | $0.00 (avoided expensive VPC NAT) |
+| **DNS** | *nic.ua (external)* | $0.00 (saved $0.50/mo Route 53 zone fee) |
+
+---
+
+## 4. How to Build, Rebuild, and Deploy
+
+### 4.1 Rebuilding & Deploying Frontend Changes
+```powershell
+# 1. Clean previous build caches
+Remove-Item -Recurse -Force frontend/.next, frontend/out -ErrorAction SilentlyContinue
+
+# 2. Build static export with Next.js Turbopack
+npm --prefix frontend run build
+
+# 3. Sync to S3 bucket
+$aws = "C:\Users\StockPC\AppData\Local\Python\pythoncore-3.14-64\Scripts\aws.cmd"
+& $aws s3 sync frontend/out s3://spry-shkunda-frontend-783216615378 --delete
+
+# 4. Invalidate CloudFront CDN Cache
+& $aws cloudfront create-invalidation --distribution-id EC75YMH5NWA7D --paths "/*"
+```
+
+### 4.2 Building & Pushing Backend Lambda Container
+*Because the local host CPU has Intel VT-x virtualization disabled in BIOS, Docker Desktop cannot run locally.*  
+Backend images are automatically built and pushed via GitHub Actions:
+- Workflow file: [`.github/workflows/build-backend.yml`](file:///.github/workflows/build-backend.yml)
+- Triggers on manual dispatch or push to `main` with changes in `backend/` or `infra/backend.yml`.
+- Pushes directly to ECR: `783216615378.dkr.ecr.us-east-1.amazonaws.com/spry-shkunda-backend:latest`.
+
+### 4.3 Applying Database Migrations
+To run Alembic migrations on RDS directly via the Lambda function:
+```powershell
+$aws = "C:\Users\StockPC\AppData\Local\Python\pythoncore-3.14-64\Scripts\aws.cmd"
+& $aws lambda invoke --function-name "spry-shkunda-backend" `
+    --cli-binary-format raw-in-base64-out `
+    --payload '{\"action\":\"migrate\"}' `
+    response.json
+Get-Content response.json
 ```
 
 ---
 
-## 4. Immediate Next Steps & How to Proceed
+## 5. Teardown / Cleanup Instructions (After Grading)
 
-### Step 1: Link to User's GitHub Fork
-1. The user creates a fork of `https://github.com/dobosevych/SuccessfulSuccess` on their GitHub account.
-2. In the repository folder, point `origin` to the new fork:
-   ```powershell
-   git remote set-url origin https://github.com/<YOUR_GITHUB_USERNAME>/<REPO_NAME>.git
-   git push -u origin main
-   ```
-   *(Alternatively, run `gh auth login` and `gh repo fork dobosevych/SuccessfulSuccess --clone=false`).*
+When the lab is graded and you want to shut down all cloud resources:
+```powershell
+$aws = "C:\Users\StockPC\AppData\Local\Python\pythoncore-3.14-64\Scripts\aws.cmd"
 
-### Step 2: Configure AWS Credentials in `.env`
-Edit `C:\Users\StockPC\Desktop\shkunda_work\oles_viber_code\.env`:
-```ini
-AWS_ACCESS_KEY_ID=<your-iam-access-key>
-AWS_SECRET_ACCESS_KEY=<your-iam-secret-key>
-AWS_REGION=us-east-1
-PROJECT_NAME=<unique-short-name-e.g-spry-myname>
-AWS_DB_PASSWORD=<secure-8-to-41-char-password>
-AWS_CLOUDFRONT_PLAN=FREE
+# Empty the S3 static bucket first (CloudFormation requires empty bucket)
+& $aws s3 rm s3://spry-shkunda-frontend-783216615378 --recursive
+
+# Delete CloudFormation stacks in reverse order
+& $aws cloudformation delete-stack --stack-name spry-shkunda-frontend
+& $aws cloudformation delete-stack --stack-name spry-shkunda-backend
+& $aws cloudformation delete-stack --stack-name spry-shkunda-auth
+& $aws cloudformation delete-stack --stack-name spry-shkunda-ecr
 ```
-
-### Step 3: Run / Deploy
-Once Docker Desktop and AWS credentials are in place:
-1. **Verify AWS Connection**:
-   ```bash
-   make aws-whoami
-   ```
-2. **Deploy to AWS (Full Stack)**:
-   ```bash
-   make aws-deploy
-   ```
-   This orchestrates:
-   - `make aws-deploy-auth`: Creates Cognito User Pool.
-   - `make aws-deploy-backend`: Builds Lambda image, pushes to ECR, provisions Aurora v2, runs migrations.
-   - `make aws-deploy-frontend`: Builds Next.js static export with backend API URL, syncs to S3, invalidates CloudFront.
-3. **Get URLs**:
-   ```bash
-   make aws-frontend-url  # CloudFront site URL
-   make aws-url           # Backend Lambda function URL (/docs, /health)
-   ```
-
----
-
-## 5. Course Submission Checklist
-
-- [ ] **Repository Link**: Pushed to student's personal GitHub account (lecturer given access if private).
-- [ ] **Running App Screenshot**: Frontend list of meetings running either locally or in cloud with user signed in.
-- [ ] **Frontend URL**: Reachable over HTTPS (`https://<id>.cloudfront.net` or custom domain).
-- [ ] **Backend URL**: Reachable over HTTPS (`https://<id>.lambda-url.us-east-1.on.aws`).
-- [ ] **Login URL**: `https://<frontend-url>/login/` (opens Cognito managed login, self-signup enabled).
-- [ ] **Signed-In Screenshot**: Showing the user's email in the frontend header.
