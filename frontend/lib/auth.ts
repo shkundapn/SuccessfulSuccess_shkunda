@@ -4,11 +4,13 @@ import { fetchAuthSession } from "aws-amplify/auth"
 import "aws-amplify/auth/enable-oauth-listener"
 
 export const authConfig = {
-  userPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? "",
-  clientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "",
+  userPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "us-east-1_dLIUUyTHp",
+  clientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "6s22d1p7brc05pss5gpkuvalnv",
   // Cognito's OAuth domain, e.g. <prefix>.auth.us-east-1.amazoncognito.com
-  domain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN ?? "",
-  googleEnabled: process.env.NEXT_PUBLIC_COGNITO_GOOGLE_ENABLED === "true",
+  domain:
+    process.env.NEXT_PUBLIC_COGNITO_DOMAIN ||
+    "spry-shkunda-783216615378.auth.us-east-1.amazoncognito.com",
+  googleEnabled: process.env.NEXT_PUBLIC_COGNITO_GOOGLE_ENABLED !== "false",
 }
 
 export const isAuthConfigured = Boolean(authConfig.userPoolId && authConfig.clientId)

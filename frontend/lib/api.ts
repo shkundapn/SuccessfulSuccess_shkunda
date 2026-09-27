@@ -11,7 +11,8 @@ import type {
 } from "@/lib/types"
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws"
 
 export class ApiError extends Error {
   readonly code: string
