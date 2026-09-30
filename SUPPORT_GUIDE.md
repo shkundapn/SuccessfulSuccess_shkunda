@@ -1,7 +1,7 @@
 # Spry / SuccessfulSuccess — Complete Deployment & Operations Guide
 
 > **Quick Context for Agents & Engineers:**  
-> This file is the single source of truth for the **SuccessfulSuccess (Spry)** project for student Petro Shkunda (`shkunda.pn@ucu.edu.ua`).  
+> This file is the single source of truth for the **SuccessfulSuccess (Spry)** project for student Maksym Shkunda (`shkunda.pn@ucu.edu.ua`).  
 > Reading this document gives full context on architecture decisions, active AWS infrastructure, configurations, submission assets, and operational commands.
 
 ---

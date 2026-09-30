@@ -1,6 +1,6 @@
 ### Lab Submission: Authentication with AWS Cognito & Deployment
 
-**Student:** Petro Shkunda (`shkunda.pn@ucu.edu.ua`)  
+**Student:** Maksym Shkunda (`shkunda.pn@ucu.edu.ua`)  
 **Repository:** https://github.com/shkundapn/SuccessfulSuccess_shkunda  
 
 ---

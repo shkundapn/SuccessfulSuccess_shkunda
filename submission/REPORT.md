@@ -1,6 +1,6 @@
 # Lab Submission & Verification Report: Authentication & Deployment
 
-**Student:** Petro Shkunda (`shkunda.pn@ucu.edu.ua`)  
+**Student:** Maksym Shkunda (`shkunda.pn@ucu.edu.ua`)  
 **Project:** SuccessfulSuccess (Meetings)  
 **Date:** September 30, 2026  
 
