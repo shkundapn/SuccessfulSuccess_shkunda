@@ -24,12 +24,19 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-lg" className="rounded-full" aria-label="Account menu">
-          <Avatar className="size-9">
+        <Button
+          variant="ghost"
+          className="h-10 gap-2.5 rounded-full pl-2 pr-3.5 hover:bg-black/5 dark:hover:bg-white/10"
+          aria-label="Account menu"
+        >
+          <Avatar className="size-8">
             <AvatarFallback className="tint-violet text-xs font-semibold">
               {initials(user.name ?? user.email?.split("@")[0] ?? "?")}
             </AvatarFallback>
           </Avatar>
+          <span className="max-w-[240px] truncate text-xs font-medium text-foreground">
+            {user.email ?? label}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
