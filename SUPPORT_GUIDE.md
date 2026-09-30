@@ -27,6 +27,20 @@
   [`dc0ee555525c816f36ac2c867700ab83c0f171ce`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/dc0ee555525c816f36ac2c867700ab83c0f171ce)
 * **Commit Adding Dedicated `/login/` Route:**  
   [`3c95237894a4c6a9a08404a80ce05f5ceb0f0254`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/3c95237894a4c6a9a08404a80ce05f5ceb0f0254)
+* **Commit Displaying User Email in Header:**  
+  [`a5294418659124451921f92e592737a4e52541a7`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/a5294418659124451921f92e592737a4e52541a7)  
+  *(Renders authenticated user email directly in top header bar next to avatar for rubric compliance)*
+* **Commit Adding Verified Submission Artifacts & Automated Evaluator Report:**  
+  [`317757054924f046142ade9235c51d14deddfc69`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/317757054924f046142ade9235c51d14deddfc69)
+
+### 1.3 Verified Submission Screenshots & Evidence (`submission/`)
+* **Password Sign-in Flow:** [`submission/01_password_signin_flow.png`](submission/01_password_signin_flow.png)  
+  *(Shows login form filled with email/password and `/today` page with `shkunda.pn@ucu.edu.ua` visible in header)*
+* **Google Sign-in Flow:** [`submission/02_google_signin_flow.png`](submission/02_google_signin_flow.png)  
+  *(Shows Google OAuth account selector targeting Cognito domain and `/today` page with `maksymshkunda123@gmail.com` in header)*
+* **Meeting Dashboard:** [`submission/03_meetings_list.png`](submission/03_meetings_list.png)  
+  *(Shows running meeting schedule with tags, rooms, and participants)*
+* **Standalone Evaluation Reports:** [`submission/REPORT.md`](submission/REPORT.md) & [`submission.md`](submission.md)
 
 ---
 
