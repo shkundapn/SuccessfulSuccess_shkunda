@@ -1,77 +1,98 @@
-# Lab Submission: Authentication with AWS Cognito & Federated Google Login
+# Submission: Authentication with AWS Cognito & Deployment
 
 **Student:** Maksym Shkunda (`shkunda.pn@ucu.edu.ua`)  
 **Repository:** [https://github.com/shkundapn/SuccessfulSuccess_shkunda](https://github.com/shkundapn/SuccessfulSuccess_shkunda)  
-**Date:** September 30, 2026  
+**Evaluation Target:** Course Lab Assignment — AWS Cognito Authentication & Custom Domain Deployment  
 
 ---
 
 ## 1. Login Page URL (HTTPS on Custom Domain)
 
-* **Dedicated Login URL:**  
-  [https://successfulsuccess.pp.ua/login/](https://successfulsuccess.pp.ua/login/)  
-  *(Also accessible via root: [https://successfulsuccess.pp.ua](https://successfulsuccess.pp.ua))*
+* **Primary Login URL:**  
+  `https://successfulsuccess.pp.ua/login/`  
+  Markdown link: [https://successfulsuccess.pp.ua/login/](https://successfulsuccess.pp.ua/login/)
+* **Root Application URL:**  
+  `https://successfulsuccess.pp.ua`  
+  Markdown link: [https://successfulsuccess.pp.ua](https://successfulsuccess.pp.ua)
+* **Direct CloudFront Fallback:**  
+  `https://d1lbnhcst4jnzp.cloudfront.net`  
+  Markdown link: [https://d1lbnhcst4jnzp.cloudfront.net](https://d1lbnhcst4jnzp.cloudfront.net)
 
-### Verification of Authentication Features:
-1. **Email & Password Authentication:**
-   - Supports **Sign-in** with registered email & password.
-   - Supports **Self-Registration (Sign-up)** directly from the UI (`AllowAdminCreateUserOnly: false`).
-   - Automatically confirms accounts via Pre-Sign-Up trigger (`spry-shkunda-auto-confirm`) so new users don't face firewall code delivery delays.
-2. **Federated Google Sign-In:**
-   - Prominently displays the **"Continue with Google"** button.
-   - Authenticates through the Cognito Hosted Domain (`spry-shkunda-783216615378.auth.us-east-1.amazoncognito.com`).
-   - Google OAuth client is configured for production access, allowing external UCU and personal Google accounts to sign in.
-3. **Post-Sign-In Redirection & Header State:**
-   - Both flows redirect back to `https://successfulsuccess.pp.ua/today/`.
-   - The user profile is synced to the database via `POST /api/v1/me/sync`.
-   - The authenticated user's **email is explicitly visible in the top header bar** next to the user avatar.
+### Automated Verification for Evaluator:
+```bash
+# Verify login page returns HTTP 200
+curl -sI https://successfulsuccess.pp.ua/login/
 
----
+# Verify backend health and RDS database connection
+curl -s https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws/health
+```
 
-## 2. Screenshots (User Signed In with Email Visible in Header)
-
-> *Note on Uploads:* To stay within the submission platform's 5-file limit without archiving, the full sign-in flows (entry screen + authenticated site) are provided as single composite images:
-
-### Screenshot 1: Signed In with Email & Password
-* **Primary Submission File:** [`01_password_signin_flow.png`](01_password_signin_flow.png)  
-  *(Individual component files: [`02_password_signin_header.png`](02_password_signin_header.png) & [`01_login_page.png`](01_login_page.png))*
-* **Content:**
-  - **Top:** The login page with email (`shkunda.pn@ucu.edu.ua`) and password filled in, displaying the "Continue with Google" option and Sign-up link.
-  - **Bottom:** The authenticated `/today/` page with user's email (`shkunda.pn@ucu.edu.ua`) **clearly visible in the top header bar** next to the avatar.
-
-### Screenshot 2: Signed In with Google
-* **Primary Submission File:** [`02_google_signin_flow.png`](02_google_signin_flow.png)  
-  *(Individual component files: [`04_google_signin_header.png`](04_google_signin_header.png) & [`03_google_oauth_prompt.png`](03_google_oauth_prompt.png))*
-* **Content:**
-  - **Top:** The Google account selection screen redirecting to Cognito (`spry-shkunda-783216615378.auth.us-east-1.amazoncognito.com`).
-  - **Bottom:** The authenticated `/today/` page with the Google account email (`maksymshkunda123@gmail.com`) **clearly visible in the top header bar** next to the avatar.
-
-### Bonus / Supporting Screenshot: Running Frontend & Meetings
-* **File:** [`03_meetings_list.png`](03_meetings_list.png)
-* **Content:** Shows the running meeting management dashboard with scheduled items.
+### Supported Features Verified:
+- **Email & Password:** Full self-registration ("Sign up") and sign-in.
+- **Continue with Google:** Federated OAuth 2.0 flow via Cognito domain `spry-shkunda-783216615378.auth.us-east-1.amazoncognito.com`.
+- **Session & Profile Synchronization:** On successful sign-in, redirects to `/today/`, calls `POST /api/v1/me/sync`, and displays the authenticated user's **email directly in the top header bar**.
 
 ---
 
-## 3. Git Commit Adding Cognito
+## 2. Two Screenshots of User Signed In (Email Visible in Header)
 
-* **Commit Link:**  
-  [`https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/557c76efaa810a1fb5a89aa54158bc7239816c98`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/557c76efaa810a1fb5a89aa54158bc7239816c98)
+### A. Signed In with Email & Password
+* **Image File:** `01_password_signin_flow.png`  
+* **Raw Link:** [https://raw.githubusercontent.com/shkundapn/SuccessfulSuccess_shkunda/main/submission/01_password_signin_flow.png](https://raw.githubusercontent.com/shkundapn/SuccessfulSuccess_shkunda/main/submission/01_password_signin_flow.png)  
+* **Verification Detail:** Top shows login credentials form; bottom shows `/today/` with email **`shkunda.pn@ucu.edu.ua`** clearly rendered in the site header.
 
-### Key Files in this Commit:
-* **Infrastructure Template:** [`infra/auth.yml`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/infra/auth.yml) (Cognito UserPool, Domain, UserPoolClient, GoogleIdentityProvider).
-* **Frontend Authentication:** [`frontend/components/auth-page.tsx`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/frontend/components/auth-page.tsx), [`frontend/lib/auth.ts`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/frontend/lib/auth.ts), [`frontend/components/user-menu.tsx`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/frontend/components/user-menu.tsx).
-* **Backend Verification:** [`backend/app/auth.py`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/backend/app/auth.py) (JWT token decode and signature verification).
+![Password Sign-In Flow](01_password_signin_flow.png)
 
-### Additional Supporting Commits:
+---
+
+### B. Signed In with Google
+* **Image File:** `02_google_signin_flow.png`  
+* **Raw Link:** [https://raw.githubusercontent.com/shkundapn/SuccessfulSuccess_shkunda/main/submission/02_google_signin_flow.png](https://raw.githubusercontent.com/shkundapn/SuccessfulSuccess_shkunda/main/submission/02_google_signin_flow.png)  
+* **Verification Detail:** Top shows Google OAuth account chooser targeting Cognito; bottom shows `/today/` with Google account email **`maksymshkunda123@gmail.com`** clearly rendered in the site header.
+
+![Google Sign-In Flow](02_google_signin_flow.png)
+
+---
+
+### C. Supporting Screenshot: Running Frontend & Today's Meetings
+* **Image File:** `03_meetings_list.png`  
+* **Raw Link:** [https://raw.githubusercontent.com/shkundapn/SuccessfulSuccess_shkunda/main/submission/03_meetings_list.png](https://raw.githubusercontent.com/shkundapn/SuccessfulSuccess_shkunda/main/submission/03_meetings_list.png)
+
+![Meetings List](03_meetings_list.png)
+
+---
+
+## 3. Link to the Commit that Adds Cognito
+
+* **Primary Commit Link:**  
+  `https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/557c76efaa810a1fb5a89aa54158bc7239816c98`  
+  Markdown link: [`557c76efaa810a1fb5a89aa54158bc7239816c98`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/557c76efaa810a1fb5a89aa54158bc7239816c98)
+
+### Key Changes in this Commit:
+1. **Infrastructure Template:** [`infra/auth.yml`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/infra/auth.yml)  
+   - Declares `AWS::Cognito::UserPool`, `AWS::Cognito::UserPoolDomain`, `AWS::Cognito::UserPoolClient`, and `AWS::Cognito::UserPoolIdentityProvider` (Google).
+2. **Frontend Authentication:**
+   - [`frontend/components/auth-page.tsx`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/frontend/components/auth-page.tsx): Sign-in/Sign-up UI with Google button.
+   - [`frontend/lib/auth.ts`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/frontend/lib/auth.ts): AWS Amplify configuration.
+   - [`frontend/components/user-menu.tsx`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/frontend/components/user-menu.tsx): Header user profile menu.
+3. **Backend JWT Authentication:**
+   - [`backend/app/auth.py`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/blob/557c76efaa810a1fb5a89aa54158bc7239816c98/backend/app/auth.py): Verifies Cognito JWT access and ID tokens via JWKS keys.
+
+### Relevant Supporting Commits:
 * [`ecd0592`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/ecd05924184a02094113bb7cec873e2429d713ac) — Pre-Sign-Up Auto-Confirm Lambda trigger.
-* [`a529441`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/a5294418659124451921f92e592737a4e52541a7) — Header update displaying user email next to avatar.
+* [`3c95237`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/3c95237894a4c6a9a08404a80ce05f5ceb0f0254) — Dedicated `/login/` route for direct evaluation.
+* [`a529441`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/a5294418659124451921f92e592737a4e52541a7) — Header update explicitly rendering user email text beside avatar.
 
 ---
 
-## 4. Deployed Service Endpoints Reference
+## 4. Production & Configuration Status
 
-* **Frontend Custom Domain:** `https://successfulsuccess.pp.ua`
-* **CloudFront CDN Fallback:** `https://d1lbnhcst4jnzp.cloudfront.net`
-* **Backend Lambda Function URL:** `https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws`
-* **Interactive Swagger UI:** `https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws/docs`
-* **API Health Check:** `https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws/health`
+* **Self Sign-Up:**  
+  Permanently enabled on User Pool `us-east-1_dLIUUyTHp` (`AllowAdminCreateUserOnly: false`).
+* **Pre-Sign-Up Auto-Confirm Lambda:**  
+  Function `spry-shkunda-auto-confirm` automatically verifies new sign-ups, allowing anyone (including automated or manual reviewers) to register and sign in immediately.
+* **Google OAuth App:**  
+  Set to Production mode (`openid`, `email`, `profile` scopes) with authorized redirect URI `https://spry-shkunda-783216615378.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`.
+* **Backend API & Database:**  
+  AWS Lambda Function URL: `https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws`  
+  RDS PostgreSQL: `spry-shkunda-db` (db.t4g.micro, fully migrated with Alembic).
