@@ -39,6 +39,7 @@ AUTH_STACK ?= $(PROJECT_NAME)-auth
 APP_STACK ?= $(PROJECT_NAME)-backend
 ECR_STACK ?= $(PROJECT_NAME)-ecr
 FRONTEND_STACK ?= $(PROJECT_NAME)-frontend
+REPORTS_STACK ?= $(PROJECT_NAME)-reports
 IMAGE_TAG ?= latest
 # x86_64 or arm64. arm64 is ~20% cheaper on Lambda and builds natively on
 # Apple Silicon; the image platform is derived from it so the two cannot drift.
@@ -95,7 +96,8 @@ endef
 .PHONY: help up up-build down down-v logs ps migrate revision seed test lint fmt shell-backend psql \
         aws-whoami aws-deploy aws-deploy-auth aws-auth-env aws-ecr aws-push aws-deploy-backend aws-migrate aws-url aws-status aws-logs \
         aws-db-stop aws-db-start aws-db-status \
-        aws-frontend-cert aws-deploy-frontend aws-frontend-url aws-destroy
+        aws-frontend-cert aws-deploy-frontend aws-frontend-url aws-destroy \
+        aws-deploy-reports report-now
 
 help:
 	@grep -hE '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -357,6 +359,52 @@ aws-deploy-frontend: ## Deploy the frontend to S3 + CloudFront, built against th
 
 aws-frontend-url: ## Print the deployed site URL
 	@$(call stack-output,$(FRONTEND_STACK),SiteUrl)
+
+aws-deploy-reports: ## Deploy the weekly reports event-driven pipeline (SQS, S3, Lambdas, Schedule)
+	$(require-aws-credentials)
+	@echo "Deploying $(REPORTS_STACK)..."
+	@vpc=$$($(AWS) ec2 describe-vpcs --filters "Name=isDefault,Values=true" \
+		--query 'Vpcs[0].VpcId' --output text | tr -d '[:space:]'); \
+	subnets=$$($(AWS) ec2 describe-subnets --filters "Name=vpc-id,Values=$$vpc" \
+		--query 'Subnets[?MapPublicIpOnLaunch==`true`].SubnetId' --output text | tr '[:space:]' ',' | sed 's/,$$//'); \
+	rtb=$$($(AWS) ec2 describe-route-tables --filters "Name=vpc-id,Values=$$vpc" \
+		--query 'RouteTables[0].RouteTableId' --output text | tr -d '[:space:]'); \
+	sg=$$($(AWS) ec2 describe-security-groups --filters "Name=vpc-id,Values=$$vpc" "Name=tag:PROJECT_NAME,Values=$(PROJECT_NAME)" \
+		--query 'SecurityGroups[?contains(GroupName, `FunctionSecurityGroup`)].GroupId' --output text | tr -d '[:space:]'); \
+	fn=$$($(call stack-output,$(APP_STACK),FunctionName) 2>/dev/null | tr -d '[:space:]'); \
+	image_uri=$$($(AWS) lambda get-function-configuration --function-name "$$fn" \
+		--query 'Code.ImageUri' --output text 2>/dev/null | tr -d '[:space:]'); \
+	db_url=$$($(AWS) lambda get-function-configuration --function-name "$$fn" \
+		--query 'Environment.Variables.DATABASE_URL' --output text 2>/dev/null | tr -d '[:space:]'); \
+	$(call wait-stack-idle,$(REPORTS_STACK)); \
+	$(call clear-failed-create,$(REPORTS_STACK)); \
+	$(AWS) cloudformation deploy \
+		--stack-name $(REPORTS_STACK) \
+		--template-file infra/reports.yml \
+		--capabilities CAPABILITY_IAM \
+		--no-fail-on-empty-changeset \
+		$(STACK_TAGS) \
+		--parameter-overrides \
+			"ProjectName=$(PROJECT_NAME)" \
+			"VpcId=$$vpc" \
+			"SubnetIds=$$subnets" \
+			"RouteTableIds=$$rtb" \
+			"SecurityGroupIds=$$sg" \
+			ImageUri="$$image_uri" \
+			DatabaseUrl="$$db_url" \
+			"RecipientEmail=maksym.shkunda.25@cnu.edu.ua" \
+			"SenderEmail=maksym.shkunda.25@cnu.edu.ua" \
+			"AppTimezone=$(APP_TIMEZONE)"
+
+report-now: ## Build a weekly report on demand via SQS: make report-now WEEK=2026-W39
+	$(require-aws-credentials)
+	@q_url=$$($(call stack-output,$(REPORTS_STACK),ReportQueueUrl) | tr -d '[:space:]'); \
+	test -n "$$q_url" -a "$$q_url" != "None" || { \
+		echo "Reports queue not found — deploy the stack first with make aws-deploy-reports"; exit 1; }; \
+	week="$(WEEK)"; \
+	payload=$$(if [ -n "$$week" ]; then printf '{"week": "%s", "source": "cli"}' "$$week"; else printf '{"week": null, "source": "cli"}'; fi); \
+	echo "Sending report request to SQS queue ($$q_url): $$payload"; \
+	$(AWS) sqs send-message --queue-url "$$q_url" --message-body "$$payload"
 
 aws-destroy: ## Delete every stack, including the database and its data
 	$(require-aws-credentials)
