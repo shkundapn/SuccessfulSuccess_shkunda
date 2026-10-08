@@ -62,7 +62,7 @@ def get_default_week() -> str:
     try:
         tz = ZoneInfo(tz_name)
     except Exception:
-        tz = datetime.timezone.utc
+        tz = datetime.UTC
     now = datetime.datetime.now(tz)
     last_week = now - datetime.timedelta(days=7)
     year, week_num, _ = last_week.isocalendar()

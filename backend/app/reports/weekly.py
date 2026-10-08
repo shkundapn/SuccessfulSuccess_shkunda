@@ -36,7 +36,7 @@ async def generate_weekly_report(week: str) -> bytes:
     try:
         tz = ZoneInfo(tz_name)
     except Exception:
-        tz = datetime.timezone.utc
+        tz = datetime.UTC
 
     start_date, end_date = parse_iso_week(week)
     start_dt = datetime.datetime.combine(start_date, datetime.time.min, tzinfo=tz)
