@@ -11,9 +11,10 @@ from collections import defaultdict
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import selectinload
+from sqlalchemy.pool import NullPool
 
-from app.db import SessionFactory
 from app.models.meeting import Meeting
 
 
@@ -46,26 +47,37 @@ async def generate_weekly_report(week: str) -> bytes:
     prev_start_dt = datetime.datetime.combine(prev_start_date, datetime.time.min, tzinfo=tz)
     prev_end_dt = datetime.datetime.combine(prev_end_date, datetime.time.min, tzinfo=tz)
 
-    async with SessionFactory() as session:
-        # Current week meetings
-        stmt = (
-            select(Meeting)
-            .options(selectinload(Meeting.participants))
-            .where(Meeting.starts_at >= start_dt, Meeting.starts_at < end_dt)
-            .order_by(Meeting.starts_at)
-        )
-        res = await session.execute(stmt)
-        current_meetings = list(res.scalars().all())
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise ValueError("DATABASE_URL environment variable is required")
 
-        # Previous week meetings
-        prev_stmt = (
-            select(Meeting)
-            .options(selectinload(Meeting.participants))
-            .where(Meeting.starts_at >= prev_start_dt, Meeting.starts_at < prev_end_dt)
-            .order_by(Meeting.starts_at)
-        )
-        prev_res = await session.execute(prev_stmt)
-        prev_meetings = list(prev_res.scalars().all())
+    # Using NullPool avoids asyncpg connections sticking to old event loops in Lambda
+    engine = create_async_engine(db_url, echo=False, poolclass=NullPool)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+
+    try:
+        async with session_factory() as session:
+            # Current week meetings
+            stmt = (
+                select(Meeting)
+                .options(selectinload(Meeting.participants))
+                .where(Meeting.starts_at >= start_dt, Meeting.starts_at < end_dt)
+                .order_by(Meeting.starts_at)
+            )
+            res = await session.execute(stmt)
+            current_meetings = list(res.scalars().all())
+
+            # Previous week meetings
+            prev_stmt = (
+                select(Meeting)
+                .options(selectinload(Meeting.participants))
+                .where(Meeting.starts_at >= prev_start_dt, Meeting.starts_at < prev_end_dt)
+                .order_by(Meeting.starts_at)
+            )
+            prev_res = await session.execute(prev_stmt)
+            prev_meetings = list(prev_res.scalars().all())
+    finally:
+        await engine.dispose()
 
     # Totals
     cur_count = len(current_meetings)
@@ -189,12 +201,4 @@ async def generate_weekly_report(week: str) -> bytes:
 
 def build_weekly_report(week: str) -> bytes:
     """Query the meetings of one ISO week (e.g. '2026-W40') and return the CSV."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(generate_weekly_report(week))
-    else:
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            return executor.submit(asyncio.run, generate_weekly_report(week)).result()
+    return asyncio.run(generate_weekly_report(week))
