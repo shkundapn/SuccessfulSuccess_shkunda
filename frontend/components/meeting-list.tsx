@@ -66,19 +66,35 @@ function LoadingScreen() {
 }
 
 export function MeetingList({
+  meetings: customMeetings,
+  isPending: customPending,
+  isError: customError,
+  error: customErrObj,
+  onRetry,
   windowTab = "all",
   onCreate,
   onView,
   onEdit,
   onDelete,
 }: {
+  meetings?: Meeting[]
+  isPending?: boolean
+  isError?: boolean
+  error?: unknown
+  onRetry?: () => void
   windowTab?: "all" | "upcoming" | "past"
   onCreate: () => void
   onView: (meeting: Meeting) => void
   onEdit: (meeting: Meeting) => void
   onDelete: (meeting: Meeting) => void
 }) {
-  const { data, isPending, isError, error, refetch } = useMeetings()
+  const query = useMeetings()
+
+  const isPending = customPending !== undefined ? customPending : query.isPending
+  const isError = customError !== undefined ? customError : query.isError
+  const error = customErrObj !== undefined ? customErrObj : query.error
+  const refetch = onRetry ?? query.refetch
+  const items = customMeetings !== undefined ? customMeetings : (query.data?.items ?? [])
 
   if (isPending) {
     return <LoadingScreen />
@@ -99,7 +115,7 @@ export function MeetingList({
     )
   }
 
-  if (data.items.length === 0) {
+  if (items.length === 0) {
     return (
       <Card className="border-2 border-dashed border-border bg-card/60 shadow-none">
         <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
@@ -113,9 +129,9 @@ export function MeetingList({
             <CalendarPlus className="size-6" aria-hidden />
           </span>
           <div>
-            <p className="text-lg font-bold">No meetings today</p>
+            <p className="text-lg font-bold">No meetings found</p>
             <p className="text-muted-foreground text-sm">
-              Your day is clear. Schedule something when you are ready.
+              Your day is clear or no meetings matched your filters. Schedule something when you are ready.
             </p>
           </div>
           <Button onClick={onCreate}>Schedule one</Button>
@@ -124,10 +140,10 @@ export function MeetingList({
     )
   }
 
-  const upcomingMeetings = data.items.filter(
+  const upcomingMeetings = items.filter(
     (m) => getMeetingStatus(m.starts_at, m.ends_at) !== "past"
   )
-  const pastMeetings = data.items.filter(
+  const pastMeetings = items.filter(
     (m) => getMeetingStatus(m.starts_at, m.ends_at) === "past"
   )
 

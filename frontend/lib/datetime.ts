@@ -111,3 +111,90 @@ export function formatDateTimeStamp(iso: string): string {
   }
 }
 
+/** Check if location string is or contains a virtual meeting link (Meet, Zoom, Teams, Webex, URL) */
+export function isCallUrl(location: string | null | undefined): boolean {
+  if (!location) return false
+  const trimmed = location.trim()
+  if (/^https?:\/\//i.test(trimmed)) return true
+  return /(?:zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|whereby\.com)/i.test(
+    trimmed,
+  )
+}
+
+/** Extract full clickable URL from a location string */
+export function extractCallUrl(location: string | null | undefined): string | null {
+  if (!location) return null
+  const trimmed = location.trim()
+  const match = trimmed.match(/https?:\/\/[^\s]+/i)
+  if (match) return match[0]
+  if (
+    /(?:zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|whereby\.com)/i.test(
+      trimmed,
+    )
+  ) {
+    return `https://${trimmed}`
+  }
+  return null
+}
+
+/** Compute elapsed progress percentage (0-100) and remaining minutes for a live meeting */
+export function getMeetingProgress(
+  startsAt: string,
+  endsAt: string,
+): { percent: number; remainingMinutes: number; elapsedMinutes: number } {
+  const now = Date.now()
+  const start = new Date(startsAt).getTime()
+  const end = new Date(endsAt).getTime()
+  const totalDuration = Math.max(1, end - start)
+  const elapsed = Math.max(0, now - start)
+  const percent = Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)))
+  const remainingMinutes = Math.max(0, Math.round((end - now) / 60_000))
+  const elapsedMinutes = Math.round(elapsed / 60_000)
+  return { percent, remainingMinutes, elapsedMinutes }
+}
+
+/** True if meeting starts within 15 minutes from now */
+export function isStartingSoon(startsAt: string): boolean {
+  const now = Date.now()
+  const start = new Date(startsAt).getTime()
+  const diffMin = (start - now) / 60_000
+  return diffMin > 0 && diffMin <= 15
+}
+
+/**
+ * Returns wall-clock minutes from midnight (0..1439) for this ISO timestamp.
+ * Reads the time directly so it matches the displayed schedule.
+ */
+export function timeToMinutes(iso: string): number {
+  const timeStr = formatTime(iso)
+  const [h, m] = timeStr.split(":").map(Number)
+  if (isNaN(h) || isNaN(m)) return 0
+  return h * 60 + m
+}
+
+export function formatHourLabel(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`
+}
+
+export function addDays(date: Date, amount: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + amount)
+  return result
+}
+
+export function subDays(date: Date, amount: number): Date {
+  return addDays(date, -amount)
+}
+
+export function isSameDay(d1: Date, d2: Date): boolean {
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  )
+}
+
+export function isToday(date: Date): boolean {
+  return isSameDay(date, new Date())
+}
+

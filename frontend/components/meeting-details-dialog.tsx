@@ -1,7 +1,18 @@
 "use client"
 
 import { useRef } from "react"
-import { CalendarDays, Clock, Mail, MapPin, Pencil, Trash2, Users } from "lucide-react"
+import {
+  CalendarDays,
+  Clock,
+  Copy,
+  Mail,
+  MapPin,
+  Pencil,
+  Trash2,
+  Users,
+  Video,
+} from "lucide-react"
+import { toast } from "sonner"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -15,6 +26,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import {
+  extractCallUrl,
   formatDateTimeStamp,
   formatDuration,
   formatLongDate,
@@ -22,6 +34,7 @@ import {
   formatTimeRange,
   getMeetingStatus,
   initials,
+  isCallUrl,
 } from "@/lib/datetime"
 import type { Meeting } from "@/lib/types"
 
@@ -41,6 +54,8 @@ export function MeetingDetailsDialog({
   const editRef = useRef<HTMLButtonElement>(null)
   const status = meeting ? getMeetingStatus(meeting.starts_at, meeting.ends_at) : "upcoming"
   const relativeTime = meeting ? formatRelativeMeetingTime(meeting.starts_at, meeting.ends_at) : ""
+  const hasCall = meeting ? isCallUrl(meeting.location) : false
+  const callUrl = meeting ? extractCallUrl(meeting.location) : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,12 +109,49 @@ export function MeetingDetailsDialog({
               <dt className="sr-only">Date</dt>
               <dd>{formatLongDate(meeting.starts_at)}</dd>
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="text-muted-foreground size-4" aria-hidden />
-              <dt className="sr-only">Location</dt>
-              <dd className={meeting.location ? undefined : "text-muted-foreground"}>
-                {meeting.location ?? "No location"}
-              </dd>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {hasCall ? (
+                  <Video className="text-primary size-4 shrink-0" aria-hidden />
+                ) : (
+                  <MapPin className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                )}
+                <dt className="sr-only">Location</dt>
+                <dd className={meeting.location ? undefined : "text-muted-foreground"}>
+                  {hasCall && callUrl ? (
+                    <a
+                      href={callUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary font-medium hover:underline inline-flex items-center gap-1"
+                    >
+                      {meeting.location}
+                    </a>
+                  ) : (
+                    meeting.location ?? "No location"
+                  )}
+                </dd>
+              </div>
+
+              {hasCall && callUrl ? (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  className="h-7 text-xs gap-1"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(callUrl)
+                      toast.success("Meeting link copied to clipboard")
+                    } catch {
+                      toast.error("Could not copy link")
+                    }
+                  }}
+                  title="Copy link"
+                >
+                  <Copy className="size-3" />
+                  Copy
+                </Button>
+              ) : null}
             </div>
           </dl>
 
@@ -146,15 +198,26 @@ export function MeetingDetailsDialog({
             )}
           </section>
 
-          <DialogFooter>
+          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 sm:justify-between">
             <Button variant="destructive" onClick={() => onDelete(meeting)}>
               <Trash2 aria-hidden />
               Delete
             </Button>
-            <Button ref={editRef} onClick={() => onEdit(meeting)}>
-              <Pencil aria-hidden />
-              Edit
-            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              {hasCall && callUrl ? (
+                <Button
+                  className="gap-1.5 font-semibold"
+                  onClick={() => window.open(callUrl, "_blank", "noopener,noreferrer")}
+                >
+                  <Video className="size-4" />
+                  Join Call
+                </Button>
+              ) : null}
+              <Button ref={editRef} variant="outline" onClick={() => onEdit(meeting)}>
+                <Pencil aria-hidden />
+                Edit
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       ) : null}

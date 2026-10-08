@@ -83,15 +83,24 @@ function participantErrors(
 }
 
 /** Blank form for a new meeting, or the meeting's current values when editing. */
-function defaultValues(meeting?: Meeting): FormValues {
+function defaultValues(
+  meeting?: Meeting,
+  defaultDate?: Date,
+  defaultStartTime?: string,
+): FormValues {
   if (!meeting) {
+    const start = defaultStartTime ?? "10:00"
+    const [h, m] = start.split(":").map(Number)
+    const endH = Math.min(23, (h ?? 10) + 1)
+    const end = `${String(endH).padStart(2, "0")}:${String(m ?? 0).padStart(2, "0")}`
+
     return {
       name: "",
       description: "",
       location: "",
-      date: new Date(),
-      startTime: "10:00",
-      endTime: "11:00",
+      date: defaultDate ?? new Date(),
+      startTime: start,
+      endTime: end,
       participants: [{ name: "", email: "" }],
     }
   }
@@ -114,10 +123,14 @@ export function MeetingFormDialog({
   open,
   onOpenChange,
   meeting,
+  defaultDate,
+  defaultStartTime,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   meeting?: Meeting
+  defaultDate?: Date
+  defaultStartTime?: string
 }) {
   const createMeeting = useCreateMeeting()
   const updateMeeting = useUpdateMeeting()
@@ -126,7 +139,7 @@ export function MeetingFormDialog({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues(meeting),
+    defaultValues: defaultValues(meeting, defaultDate, defaultStartTime),
   })
 
   const {
@@ -140,8 +153,8 @@ export function MeetingFormDialog({
 
   // Refill the form each time it opens, so edits start from the meeting's current values.
   useEffect(() => {
-    if (open) reset(defaultValues(meeting))
-  }, [open, meeting, reset])
+    if (open) reset(defaultValues(meeting, defaultDate, defaultStartTime))
+  }, [open, meeting, defaultDate, defaultStartTime, reset])
 
   const onSubmit = handleSubmit(async (values) => {
     const participants = values.participants

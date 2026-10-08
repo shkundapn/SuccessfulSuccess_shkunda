@@ -5,13 +5,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createMeeting, deleteMeeting, listMeetings, updateMeeting } from "@/lib/api"
 import type { MeetingCreateInput } from "@/lib/types"
 
-/** Shared cache key: the list and the header menu read the same entry. */
-export const meetingsKey = (date?: string) => ["meetings", { date: date ?? "today" }] as const
+export type MeetingQueryParams = { date?: string; q?: string }
 
-export function useMeetings(date?: string) {
+function parseParams(param?: MeetingQueryParams | string): MeetingQueryParams {
+  if (typeof param === "string") return { date: param }
+  return param ?? {}
+}
+
+/** Shared cache key: the list and the header menu read the same entry. */
+export const meetingsKey = (param?: MeetingQueryParams | string) => {
+  const p = parseParams(param)
+  return ["meetings", { date: p.date ?? "today", q: p.q ?? "" }] as const
+}
+
+export function useMeetings(param?: MeetingQueryParams | string) {
+  const p = parseParams(param)
   return useQuery({
-    queryKey: meetingsKey(date),
-    queryFn: () => listMeetings({ date }),
+    queryKey: meetingsKey(param),
+    queryFn: () => listMeetings(p),
   })
 }
 
