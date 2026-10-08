@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, MapPin, MoreHorizontal, Pencil, Trash2, Users } from "lucide-react"
+import { Calendar, Clock, Eye, History, MapPin, MoreHorizontal, Pencil, Trash2, Users } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { formatTimeRange, initials } from "@/lib/datetime"
+import {
+  formatDateTimeStamp,
+  formatRelativeMeetingTime,
+  formatTimeRange,
+  getMeetingStatus,
+  initials,
+} from "@/lib/datetime"
 import type { Meeting } from "@/lib/types"
 
 const MAX_AVATARS = 4
@@ -42,6 +48,8 @@ export function MeetingCard({
   onEdit: (meeting: Meeting) => void
   onDelete: (meeting: Meeting) => void
 }) {
+  const status = getMeetingStatus(meeting.starts_at, meeting.ends_at)
+  const relativeTime = formatRelativeMeetingTime(meeting.starts_at, meeting.ends_at)
   const tint = TINTS[index % TINTS.length]
   const shown = meeting.participants.slice(0, MAX_AVATARS)
   const overflow = meeting.participants.length - shown.length
@@ -51,24 +59,56 @@ export function MeetingCard({
     <Card
       id={`meeting-${meeting.id}`}
       onClick={() => onView(meeting)}
-      className="h-full cursor-pointer scroll-mt-28 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(15,16,21,0.04),0_20px_44px_-16px_rgba(139,61,255,0.28)]"
+      className={cn(
+        "h-full cursor-pointer scroll-mt-28 transition-all duration-200 hover:-translate-y-0.5",
+        status === "past"
+          ? "border-border/60 bg-card/60 opacity-85 hover:opacity-100 hover:shadow-sm"
+          : status === "live"
+            ? "border-emerald-500/50 bg-card shadow-sm ring-2 ring-emerald-500/30 hover:shadow-md"
+            : "hover:shadow-[0_2px_4px_rgba(15,16,21,0.04),0_20px_44px_-16px_rgba(139,61,255,0.28)]"
+      )}
     >
       <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              tint,
-              "inline-flex items-center rounded-full px-3 py-1 font-mono text-xs font-semibold tabular-nums",
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                tint,
+                "inline-flex items-center rounded-full px-3 py-1 font-mono text-xs font-semibold tabular-nums",
+              )}
+            >
+              {formatTimeRange(meeting.starts_at, meeting.ends_at)}
+            </span>
+            {status === "past" ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                <History className="size-3" aria-hidden />
+                Past • {relativeTime}
+              </span>
+            ) : status === "live" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
+                </span>
+                Live Now
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                <Clock className="size-3" aria-hidden />
+                {relativeTime}
+              </span>
             )}
-          >
-            {formatTimeRange(meeting.starts_at, meeting.ends_at)}
-          </span>
+          </div>
           {meeting.location ? (
             <span className="text-muted-foreground inline-flex items-center gap-1 text-sm">
               <MapPin className="size-3.5" aria-hidden />
               {meeting.location}
             </span>
           ) : null}
+        </div>
+        <div className="text-muted-foreground/75 flex items-center gap-1.5 text-[11px] font-mono">
+          <Calendar className="size-3" aria-hidden />
+          <span>{formatDateTimeStamp(meeting.starts_at)}</span>
         </div>
         {/* Menu clicks bubble through the portal in React, so stop them reaching the card. */}
         <CardAction onClick={(event) => event.stopPropagation()}>

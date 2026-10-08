@@ -76,6 +76,7 @@ endef
 
 .PHONY: help up up-build down down-v logs ps migrate revision seed test lint fmt shell-backend psql \
         aws-whoami aws-deploy aws-deploy-auth aws-auth-env aws-ecr aws-push aws-deploy-backend aws-migrate aws-url aws-status aws-logs \
+        aws-db-stop aws-db-start aws-db-status \
         aws-frontend-cert aws-deploy-frontend aws-frontend-url aws-destroy
 
 help:
@@ -258,6 +259,15 @@ aws-status: ## Show the stack outputs and the API function's state
 
 aws-logs: ## Follow the backend function logs
 	$(AWS) logs tail /aws/lambda/$(PROJECT_NAME)-backend --follow
+
+aws-db-stop: ## Stop the RDS database to pause compute charges
+	@python scripts/rds.py stop
+
+aws-db-start: ## Start the RDS database when testing or grading
+	@python scripts/rds.py start
+
+aws-db-status: ## Check the RDS database state
+	@python scripts/rds.py status
 
 aws-frontend-cert: ## Request and validate the HTTPS certificate for AWS_FRONTEND_DOMAIN (in us-east-1)
 	$(require-aws-credentials)

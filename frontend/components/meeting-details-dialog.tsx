@@ -15,9 +15,12 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import {
+  formatDateTimeStamp,
   formatDuration,
   formatLongDate,
+  formatRelativeMeetingTime,
   formatTimeRange,
+  getMeetingStatus,
   initials,
 } from "@/lib/datetime"
 import type { Meeting } from "@/lib/types"
@@ -36,6 +39,8 @@ export function MeetingDetailsDialog({
   onDelete: (meeting: Meeting) => void
 }) {
   const editRef = useRef<HTMLButtonElement>(null)
+  const status = meeting ? getMeetingStatus(meeting.starts_at, meeting.ends_at) : "upcoming"
+  const relativeTime = meeting ? formatRelativeMeetingTime(meeting.starts_at, meeting.ends_at) : ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,6 +54,25 @@ export function MeetingDetailsDialog({
           }}
         >
           <DialogHeader>
+            <div className="flex flex-wrap items-center gap-2 pb-1">
+              {status === "past" ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                  Past Meeting • {relativeTime}
+                </span>
+              ) : status === "live" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
+                  </span>
+                  Live Now
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                  Upcoming • {relativeTime}
+                </span>
+              )}
+            </div>
             <DialogTitle className="text-2xl font-bold tracking-tight">{meeting.name}</DialogTitle>
             <DialogDescription className="flex flex-wrap items-center gap-2 pt-1">
               <span className="tint-violet inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-xs font-semibold tabular-nums">
@@ -57,6 +81,9 @@ export function MeetingDetailsDialog({
               </span>
               <span className="tint-teal inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold">
                 {formatDuration(meeting.starts_at, meeting.ends_at)}
+              </span>
+              <span className="text-muted-foreground font-mono text-xs">
+                {formatDateTimeStamp(meeting.starts_at)}
               </span>
             </DialogDescription>
           </DialogHeader>

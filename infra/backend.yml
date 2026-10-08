@@ -185,7 +185,7 @@ Resources:
       DBInstanceIdentifier: !Sub "${ProjectName}-db"
       Engine: postgres
       EngineVersion: !If [HasDbEngineVersion, !Ref DbEngineVersion, !Ref "AWS::NoValue"]
-      DBInstanceClass: db.t4g.micro
+      DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
       StorageType: gp3
       DBName: !Ref DbName
