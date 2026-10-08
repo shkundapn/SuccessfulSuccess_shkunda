@@ -81,14 +81,14 @@ async def generate_weekly_report(week: str) -> bytes:
 
     # Totals
     cur_count = len(current_meetings)
-    cur_duration_hours = sum(
-        (m.ends_at - m.starts_at).total_seconds() for m in current_meetings
-    ) / 3600.0
+    cur_duration_hours = (
+        sum((m.ends_at - m.starts_at).total_seconds() for m in current_meetings) / 3600.0
+    )
 
     prev_count = len(prev_meetings)
-    prev_duration_hours = sum(
-        (m.ends_at - m.starts_at).total_seconds() for m in prev_meetings
-    ) / 3600.0
+    prev_duration_hours = (
+        sum((m.ends_at - m.starts_at).total_seconds() for m in prev_meetings) / 3600.0
+    )
 
     delta_count = cur_count - prev_count
     delta_hours = cur_duration_hours - prev_duration_hours
@@ -123,9 +123,7 @@ async def generate_weekly_report(week: str) -> bytes:
     # Summary table
     writer.writerow(["# SUMMARY METRICS"])
     writer.writerow(["Metric", "Current Week", "Previous Week", "Change"])
-    writer.writerow(
-        ["Total Meetings", cur_count, prev_count, f"{delta_count:+d}"]
-    )
+    writer.writerow(["Total Meetings", cur_count, prev_count, f"{delta_count:+d}"])
     writer.writerow(
         [
             "Total Duration (hours)",
@@ -138,9 +136,7 @@ async def generate_weekly_report(week: str) -> bytes:
 
     # Top 5 longest
     writer.writerow(["# TOP 5 LONGEST MEETINGS"])
-    writer.writerow(
-        ["Rank", "Title", "Start Time", "Duration (hours)", "Participants Count"]
-    )
+    writer.writerow(["Rank", "Title", "Start Time", "Duration (hours)", "Participants Count"])
     if longest:
         for i, m in enumerate(longest, 1):
             dur_h = (m.ends_at - m.starts_at).total_seconds() / 3600.0
