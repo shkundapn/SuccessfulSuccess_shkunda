@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useMeetings } from "@/hooks/use-meetings"
+import { requestWeeklyReport } from "@/lib/api"
 
 export function ReportsDialog({
   open,
@@ -123,17 +124,23 @@ export function ReportsDialog({
     setTimeout(() => setCopiedCmd(false), 2000)
   }
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (!recipient.trim() || !recipient.includes("@")) {
       toast.error("Please enter a valid recipient email address")
       return
     }
 
     setSending(true)
-    setTimeout(() => {
+    try {
+      await requestWeeklyReport({ recipient: recipient.trim() })
+      toast.success(
+        `Report requested for ${recipient.trim()}! Pipeline triggered via SQS. Check your inbox shortly.`,
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to trigger report")
+    } finally {
       setSending(false)
-      toast.success(`Report requested for ${recipient.trim()}! Queued via SQS.`)
-    }, 700)
+    }
   }
 
   return (

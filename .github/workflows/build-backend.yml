@@ -41,3 +41,13 @@ jobs:
             ./backend
 
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Update Lambda function code
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: spry-shkunda-backend
+          IMAGE_TAG: latest
+        run: |
+          aws lambda update-function-code \
+            --function-name spry-shkunda-backend \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

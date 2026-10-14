@@ -112,3 +112,14 @@ export function syncMe(idToken: string) {
     body: JSON.stringify({ id_token: idToken }),
   })
 }
+
+export function requestWeeklyReport(payload?: { week?: string; recipient?: string }) {
+  return request<{ status: string; message_id?: string; recipient?: string }>(
+    "/api/v1/reports/request",
+    {
+      method: "POST",
+      body: JSON.stringify(payload ?? {}),
+    },
+  )
+}
+
