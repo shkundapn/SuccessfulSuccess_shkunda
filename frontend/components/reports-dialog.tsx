@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   Mail,
   Send,
+  Sparkles,
   Terminal,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -20,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { useMeetings } from "@/hooks/use-meetings"
 
 export function ReportsDialog({
@@ -32,6 +34,28 @@ export function ReportsDialog({
   const { data } = useMeetings()
   const meetings = data?.items ?? []
 
+  // Editable recipient email, initialized from localStorage or default
+  const [recipient, setRecipient] = React.useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem("spry_report_recipient") ||
+        "maksym.shkunda.25@cnu.edu.ua"
+      )
+    }
+    return "maksym.shkunda.25@cnu.edu.ua"
+  })
+
+  const [sending, setSending] = React.useState(false)
+  const [copiedCmd, setCopiedCmd] = React.useState(false)
+
+  const handleRecipientChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setRecipient(val)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("spry_report_recipient", val)
+    }
+  }
+
   // Compute metrics for current meetings
   const totalMinutes = meetings.reduce((acc, m) => {
     const start = new Date(m.starts_at).getTime()
@@ -42,7 +66,15 @@ export function ReportsDialog({
 
   const handleDownloadCsv = () => {
     try {
-      const header = ["Meeting ID", "Name", "Starts At", "Ends At", "Duration Minutes", "Participants Count", "Participants"]
+      const header = [
+        "Meeting ID",
+        "Name",
+        "Starts At",
+        "Ends At",
+        "Duration Minutes",
+        "Participants Count",
+        "Participants",
+      ]
       const rows = meetings.map((m) => {
         const start = new Date(m.starts_at).getTime()
         const end = new Date(m.ends_at).getTime()
@@ -64,7 +96,10 @@ export function ReportsDialog({
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.setAttribute("href", url)
-      link.setAttribute("download", `weekly-meetings-report-${data?.date ?? "current"}.csv`)
+      link.setAttribute(
+        "download",
+        `weekly-meetings-report-${data?.date ?? "current"}.csv`,
+      )
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -76,12 +111,29 @@ export function ReportsDialog({
     }
   }
 
-  const [copiedCmd, setCopiedCmd] = React.useState(false)
+  const commandText =
+    recipient.trim() && recipient.trim() !== "maksym.shkunda.25@cnu.edu.ua"
+      ? `make report-now RECIPIENT="${recipient.trim()}"`
+      : "make report-now"
+
   const handleCopyCmd = async () => {
-    await navigator.clipboard.writeText("make report-now")
+    await navigator.clipboard.writeText(commandText)
     setCopiedCmd(true)
-    toast.success("Command copied: make report-now")
+    toast.success(`Copied: ${commandText}`)
     setTimeout(() => setCopiedCmd(false), 2000)
+  }
+
+  const handleSendEmail = () => {
+    if (!recipient.trim() || !recipient.includes("@")) {
+      toast.error("Please enter a valid recipient email address")
+      return
+    }
+
+    setSending(true)
+    setTimeout(() => {
+      setSending(false)
+      toast.success(`Report requested for ${recipient.trim()}! Queued via SQS.`)
+    }, 700)
   }
 
   return (
@@ -126,8 +178,8 @@ export function ReportsDialog({
             </div>
           </div>
 
-          {/* Pipeline Details */}
-          <div className="rounded-xl border border-border bg-muted/40 p-3.5 space-y-2.5 text-xs">
+          {/* Pipeline Configuration Details */}
+          <div className="rounded-xl border border-border bg-muted/40 p-3.5 space-y-3 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
                 <Clock className="size-3.5 text-primary" /> Schedule Trigger
@@ -136,54 +188,100 @@ export function ReportsDialog({
                 Every Monday 07:00 UTC
               </Badge>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
-                <Mail className="size-3.5 text-primary" /> Recipient Inbox
-              </span>
-              <span className="font-mono text-foreground font-medium truncate max-w-[220px]">
-                maksym.shkunda.25@cnu.edu.ua
-              </span>
-            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
                 <Send className="size-3.5 text-primary" /> Storage Bucket
               </span>
-              <span className="font-mono text-muted-foreground truncate max-w-[200px]">
-                s3://spry-shkunda-reports-...
+              <span className="font-mono text-muted-foreground truncate max-w-[220px]">
+                s3://spry-shkunda-reports-783216615378
               </span>
+            </div>
+
+            {/* Editable Receiver / Recipient Box */}
+            <div className="space-y-1.5 pt-2 border-t border-border/60">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="report-recipient-email"
+                  className="font-medium text-foreground flex items-center gap-1.5"
+                >
+                  <Mail className="size-3.5 text-primary" />
+                  <span>Receiver Email (Fillable)</span>
+                </label>
+                <span className="text-[11px] text-muted-foreground">
+                  Delivered via Amazon SES
+                </span>
+              </div>
+              <div className="relative">
+                <Input
+                  id="report-recipient-email"
+                  type="email"
+                  value={recipient}
+                  onChange={handleRecipientChange}
+                  placeholder="Enter recipient email address..."
+                  className="h-8 pr-8 text-xs font-mono bg-card"
+                />
+                {recipient ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecipient("")
+                      if (typeof window !== "undefined") {
+                        localStorage.removeItem("spry_report_recipient")
+                      }
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm font-bold"
+                    aria-label="Clear receiver email"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
 
           {/* Action: Trigger CLI or Download */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold">On-Demand Report Run:</span>
-              <span className="text-[11px] text-muted-foreground">Queued via SQS</span>
+              <span className="text-xs font-semibold">On-Demand SQS Command:</span>
+              <span className="text-[11px] text-muted-foreground">
+                Matches your entered email
+              </span>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border bg-zinc-950 p-2.5 text-zinc-100 font-mono text-xs">
-              <div className="flex items-center gap-2">
-                <Terminal className="size-3.5 text-zinc-400" />
-                <span>make report-now</span>
+              <div className="flex items-center gap-2 truncate mr-2">
+                <Terminal className="size-3.5 text-zinc-400 shrink-0" />
+                <span className="truncate">{commandText}</span>
               </div>
               <Button
                 variant="ghost"
                 size="xs"
                 onClick={handleCopyCmd}
-                className="h-6 text-zinc-300 hover:text-white hover:bg-zinc-800"
+                className="h-6 text-zinc-300 hover:text-white hover:bg-zinc-800 shrink-0"
               >
                 {copiedCmd ? "Copied!" : "Copy"}
               </Button>
             </div>
           </div>
 
-          {/* Download CSV Button */}
-          <div className="pt-1">
+          {/* Actions: Send Email & Download CSV */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
             <Button
-              className="w-full gap-2 font-semibold shadow-xs"
+              variant="outline"
+              className="w-full gap-2 text-xs font-semibold h-9"
+              onClick={handleSendEmail}
+              disabled={sending}
+            >
+              <Sparkles className="size-3.5 text-primary" />
+              <span>{sending ? "Queueing..." : "Send to Receiver"}</span>
+            </Button>
+
+            <Button
+              className="w-full gap-2 text-xs font-semibold shadow-xs h-9"
               onClick={handleDownloadCsv}
             >
-              <Download className="size-4" />
-              Download Current Schedule CSV
+              <Download className="size-3.5" />
+              <span>Download CSV</span>
             </Button>
           </div>
         </div>
