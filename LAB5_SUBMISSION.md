@@ -15,7 +15,8 @@
 * **Refinements and CI verification:**  
   * Lambda `NullPool` connection isolation: [`f655ff1`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/f655ff1)  
   * Full Ruff/ESLint CI Passing: [`28d892b`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/28d892b)  
-  * UI Google Calendar Timeline & Dark Mode: [`40c1a13`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/40c1a13)
+  * UI Google Calendar Timeline & Dark Mode: [`40c1a13`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/40c1a13)  
+  * Interactive Week Designation & Dynamic Preview Metrics: [`2d95a6f`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/2d95a6f)
 
 ---
 
@@ -25,9 +26,9 @@
 
 * **Recipient:** `maksym.shkunda.25@cnu.edu.ua`
 * **Sender:** `maksym.shkunda.25@cnu.edu.ua`
-* **Subject:** `Weekly Meetings Report — 2026-W39` / `Weekly Meetings Report — 2026-W40`
-* **Attachment:** `2026-W39.csv` / `2026-W40.csv`
-* **SES Message ID:** `010001a11bbe150f-34616b28-2f27-476b-b8d5-474880631602-000000`
+* **Subject:** `Weekly Meetings Report — 2026-W41` (or `2026-W40`, `2026-W39`)
+* **Attachment:** `2026-W41.csv`
+* **SES Message ID:** `010001a13e3f388a-43363754-8f68-4b23-b119-70c5331498d0-000000`
 
 ---
 
@@ -41,7 +42,7 @@ aws s3 ls s3://spry-shkunda-reports-783216615378/reports/ --recursive
 ```text
 2026-10-08 16:43:11       1060 reports/2026-W39.csv
 2026-10-14 17:30:01        520 reports/2026-W40.csv
-2026-10-14 17:40:48       3931 reports/2026-W41.csv
+2026-10-15 09:28:10       3949 reports/2026-W41.csv
 ```
 
 * `reports/2026-W39.csv`: Generated on demand via SQS message (`make report-now WEEK=2026-W39`).
