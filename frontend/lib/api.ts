@@ -113,8 +113,50 @@ export function syncMe(idToken: string) {
   })
 }
 
+export type ReportWeekOption = {
+  week: string
+  label: string
+  start_date: string
+  end_date: string
+  is_current: boolean
+  is_last: boolean
+}
+
+export type ReportPreview = {
+  week: string
+  period: string
+  start_date: string
+  end_date: string
+  meetings_count: number
+  duration_hours: number
+  prev_week: string
+  prev_meetings_count: number
+  prev_duration_hours: number
+  delta_count: number
+  delta_hours: number
+  unique_participants_count: number
+  meetings: Array<{
+    id: string
+    name: string
+    starts_at: string
+    ends_at: string
+    duration_min: number
+    participants_count: number
+    participants: string[]
+  }>
+}
+
+export function getReportWeeks() {
+  return request<ReportWeekOption[]>("/api/v1/reports/weeks")
+}
+
+export function getReportPreview(week?: string) {
+  const query = week ? `?week=${encodeURIComponent(week)}` : ""
+  return request<ReportPreview>(`/api/v1/reports/preview${query}`)
+}
+
 export function requestWeeklyReport(payload?: { week?: string; recipient?: string }) {
-  return request<{ status: string; message_id?: string; recipient?: string }>(
+  return request<{ status: string; message_id?: string; week?: string; recipient?: string }>(
     "/api/v1/reports/request",
     {
       method: "POST",

@@ -401,8 +401,15 @@ report-now: ## Build a weekly report on demand via SQS: make report-now WEEK=202
 	@q_url=$$($(call stack-output,$(REPORTS_STACK),ReportQueueUrl) | tr -d '[:space:]'); \
 	test -n "$$q_url" -a "$$q_url" != "None" || { \
 		echo "Reports queue not found — deploy the stack first with make aws-deploy-reports"; exit 1; }; \
-	week="$(WEEK)"; \
-	payload=$$(if [ -n "$$week" ]; then printf '{"week": "%s", "source": "cli"}' "$$week"; else printf '{"week": null, "source": "cli"}'; fi); \
+	raw_week="$(if $(WEEK),$(WEEK),$(if $(week),$(week),))"; \
+	raw_recip="$(if $(RECIPIENT),$(RECIPIENT),$(if $(recipient),$(recipient),maksym.shkunda.25@cnu.edu.ua))"; \
+	week=$$(echo "$$raw_week" | tr -d '[:space:]'); \
+	recip=$$(echo "$$raw_recip" | tr -d '[:space:]'); \
+	payload=$$(if [ -n "$$week" ]; then \
+		printf '{"week": "%s", "source": "cli", "recipient": "%s"}' "$$week" "$$recip"; \
+	else \
+		printf '{"week": null, "source": "cli", "recipient": "%s"}' "$$recip"; \
+	fi); \
 	echo "Sending report request to SQS queue ($$q_url): $$payload"; \
 	$(AWS) sqs send-message --queue-url "$$q_url" --message-body "$$payload"
 

@@ -8,6 +8,7 @@ import datetime
 import io
 import os
 from collections import defaultdict
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -18,10 +19,54 @@ from sqlalchemy.pool import NullPool
 from app.models.meeting import Meeting
 
 
+def normalize_iso_week(week: str | None, tz: datetime.tzinfo | None = None) -> str:
+    """Normalize week parameter into uppercase ISO week string 'YYYY-Www'.
+
+    Supports:
+      - None, '', 'default', 'last', 'prev', 'previous' -> previous ISO week
+      - 'current', 'curr', 'this', 'now' -> current ISO week
+      - '2026-w41' -> '2026-W41'
+      - '2026W41' -> '2026-W41'
+    """
+    if tz is None:
+        tz_name = os.getenv("APP_TIMEZONE", "Europe/Kyiv")
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = datetime.UTC
+
+    now = datetime.datetime.now(tz)
+
+    if (
+        not week
+        or not str(week).strip()
+        or str(week).strip().lower() in ("default", "last", "prev", "previous")
+    ):
+        last_week = now - datetime.timedelta(days=7)
+        year, week_num, _ = last_week.isocalendar()
+        return f"{year}-W{week_num:02d}"
+
+    val = str(week).strip().lower()
+    if val in ("current", "curr", "this", "now"):
+        year, week_num, _ = now.isocalendar()
+        return f"{year}-W{week_num:02d}"
+
+    cleaned = str(week).strip().upper()
+    if "-W" not in cleaned and "W" in cleaned:
+        cleaned = cleaned.replace("W", "-W")
+
+    parts = cleaned.split("-W")
+    if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+        return f"{int(parts[0]):04d}-W{int(parts[1]):02d}"
+
+    return cleaned
+
+
 def parse_iso_week(week: str) -> tuple[datetime.date, datetime.date]:
     """Parse ISO week (e.g. "2026-W40") into (start_date, end_date), Monday to Sunday."""
-    parts = week.strip().split("-W")
-    if len(parts) != 2:
+    cleaned = normalize_iso_week(week)
+    parts = cleaned.split("-W")
+    if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
         raise ValueError(f"Invalid ISO week format '{week}', expected YYYY-Www (e.g. 2026-W40)")
     year = int(parts[0])
     week_num = int(parts[1])
@@ -120,9 +165,12 @@ async def generate_weekly_report(week: str) -> bytes:
     )
     writer.writerow([])
 
+    prev_y, prev_w, _ = prev_start_date.isocalendar()
+    prev_week = f"{prev_y}-W{prev_w:02d}"
+
     # Summary table
     writer.writerow(["# SUMMARY METRICS"])
-    writer.writerow(["Metric", "Current Week", "Previous Week", "Change"])
+    writer.writerow(["Metric", f"Report Week ({week})", f"Prior Week ({prev_week})", "Change"])
     writer.writerow(["Total Meetings", cur_count, prev_count, f"{delta_count:+d}"])
     writer.writerow(
         [
@@ -198,3 +246,148 @@ async def generate_weekly_report(week: str) -> bytes:
 def build_weekly_report(week: str) -> bytes:
     """Query the meetings of one ISO week (e.g. '2026-W40') and return the CSV."""
     return asyncio.run(generate_weekly_report(week))
+
+
+def get_recent_weeks(count: int = 6) -> list[dict[str, Any]]:
+    """Return a list of recent ISO weeks with descriptive human-readable labels."""
+    tz_name = os.getenv("APP_TIMEZONE", "Europe/Kyiv")
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = datetime.UTC
+
+    now = datetime.datetime.now(tz)
+    cur_year, cur_week_num, _ = now.isocalendar()
+    cur_week = f"{cur_year}-W{cur_week_num:02d}"
+
+    last_week_dt = now - datetime.timedelta(days=7)
+    last_year, last_week_num, _ = last_week_dt.isocalendar()
+    last_week = f"{last_year}-W{last_week_num:02d}"
+
+    weeks = []
+    # Start from current week and go backwards
+    for i in range(count):
+        ref_dt = now - datetime.timedelta(days=7 * i)
+        y, w, _ = ref_dt.isocalendar()
+        week_str = f"{y}-W{w:02d}"
+        s_date, e_date = parse_iso_week(week_str)
+        # e_date is next Monday, so Sunday is e_date - 1 day
+        sunday = e_date - datetime.timedelta(days=1)
+        date_range_str = f"{s_date.strftime('%b %d')} – {sunday.strftime('%b %d')}"
+
+        if week_str == cur_week:
+            tag = "Current Week"
+        elif week_str == last_week:
+            tag = "Last Week"
+        else:
+            tag = ""
+
+        label = f"{week_str} ({date_range_str})"
+        if tag:
+            label = f"{label} — {tag}"
+
+        weeks.append(
+            {
+                "week": week_str,
+                "label": label,
+                "start_date": s_date.isoformat(),
+                "end_date": sunday.isoformat(),
+                "is_current": week_str == cur_week,
+                "is_last": week_str == last_week,
+            }
+        )
+
+    return weeks
+
+
+async def get_weekly_report_summary(week: str | None = None) -> dict[str, Any]:
+    """Query database and return structured weekly report statistics for API preview."""
+    tz_name = os.getenv("APP_TIMEZONE", "Europe/Kyiv")
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = datetime.UTC
+
+    resolved_week = normalize_iso_week(week, tz)
+    start_date, end_date = parse_iso_week(resolved_week)
+    start_dt = datetime.datetime.combine(start_date, datetime.time.min, tzinfo=tz)
+    end_dt = datetime.datetime.combine(end_date, datetime.time.min, tzinfo=tz)
+
+    prev_start_date = start_date - datetime.timedelta(days=7)
+    prev_end_date = start_date
+    prev_start_dt = datetime.datetime.combine(prev_start_date, datetime.time.min, tzinfo=tz)
+    prev_end_dt = datetime.datetime.combine(prev_end_date, datetime.time.min, tzinfo=tz)
+
+    prev_y, prev_w, _ = prev_start_date.isocalendar()
+    prev_week = f"{prev_y}-W{prev_w:02d}"
+
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise ValueError("DATABASE_URL environment variable is required")
+
+    engine = create_async_engine(db_url, echo=False, poolclass=NullPool)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+
+    try:
+        async with session_factory() as session:
+            stmt = (
+                select(Meeting)
+                .options(selectinload(Meeting.participants))
+                .where(Meeting.starts_at >= start_dt, Meeting.starts_at < end_dt)
+                .order_by(Meeting.starts_at)
+            )
+            res = await session.execute(stmt)
+            current_meetings = list(res.scalars().all())
+
+            prev_stmt = (
+                select(Meeting)
+                .options(selectinload(Meeting.participants))
+                .where(Meeting.starts_at >= prev_start_dt, Meeting.starts_at < prev_end_dt)
+                .order_by(Meeting.starts_at)
+            )
+            prev_res = await session.execute(prev_stmt)
+            prev_meetings = list(prev_res.scalars().all())
+    finally:
+        await engine.dispose()
+
+    cur_count = len(current_meetings)
+    cur_duration_hours = (
+        sum((m.ends_at - m.starts_at).total_seconds() for m in current_meetings) / 3600.0
+    )
+
+    prev_count = len(prev_meetings)
+    prev_duration_hours = (
+        sum((m.ends_at - m.starts_at).total_seconds() for m in prev_meetings) / 3600.0
+    )
+
+    unique_participants = {p.name for m in current_meetings for p in m.participants}
+
+    end_date_inclusive = end_date - datetime.timedelta(days=1)
+    period_str = f"{start_date.isoformat()} to {end_date_inclusive.isoformat()}"
+
+    return {
+        "week": resolved_week,
+        "period": period_str,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date_inclusive.isoformat(),
+        "meetings_count": cur_count,
+        "duration_hours": round(cur_duration_hours, 2),
+        "prev_week": prev_week,
+        "prev_meetings_count": prev_count,
+        "prev_duration_hours": round(prev_duration_hours, 2),
+        "delta_count": cur_count - prev_count,
+        "delta_hours": round(cur_duration_hours - prev_duration_hours, 2),
+        "unique_participants_count": len(unique_participants),
+        "meetings": [
+            {
+                "id": str(m.id),
+                "name": m.name,
+                "starts_at": m.starts_at.isoformat(),
+                "ends_at": m.ends_at.isoformat(),
+                "duration_min": int(round((m.ends_at - m.starts_at).total_seconds() / 60.0)),
+                "participants_count": len(m.participants),
+                "participants": [p.name for p in m.participants],
+            }
+            for m in current_meetings
+        ],
+    }

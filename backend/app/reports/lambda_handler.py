@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import boto3
 
-from app.reports.weekly import build_weekly_report
+from app.reports.weekly import build_weekly_report, normalize_iso_week
 
 # Configure structured logging
 logger = logging.getLogger("app.reports")
@@ -85,8 +85,7 @@ def builder_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any
         # Direct or Schedule invocation
         week = event.get("week")
 
-    if not week:
-        week = get_default_week()
+    week = normalize_iso_week(week)
 
     # Submission requirement: CloudWatch log line identifying the trigger and week
     logger.info(

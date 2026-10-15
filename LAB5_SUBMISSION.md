@@ -21,9 +21,7 @@
 
 ## 2. Screenshot of the SES Delivered Email
 
-> *Attach or embed your screenshot here showing the email received in your inbox with the CSV attachment.*
-
-![SES Email with CSV Attachment](submission/email_report_screenshot.png)
+![SES Email with CSV Attachment](SQS_screen.png)
 
 * **Recipient:** `maksym.shkunda.25@cnu.edu.ua`
 * **Sender:** `maksym.shkunda.25@cnu.edu.ua`
