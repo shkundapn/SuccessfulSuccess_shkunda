@@ -9,6 +9,8 @@
 
 ## 1. Commit & Repository Artifacts
 
+- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/0e8696230e0e727c602da4d9ceb6e26346c3d640](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/0e8696230e0e727c602da4d9ceb6e26346c3d640)
+
 This implementation adds:
 1. **Core Parser**: `backend/app/ai/agenda.py` (Pydantic schema `ParsedAgenda`, `RECORD_AGENDA` tool, system prompt with date/timezone context, dual-engine fallback).
 2. **Lambda Handler & URL**: `backend/app/ai/agenda_lambda.py` (Cognito JWKS verification, 10,000 char limit check, CORS, structured JSON logging).
