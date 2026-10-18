@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FileSpreadsheet, Plus } from "lucide-react"
+import { FileSpreadsheet, Plus, Sparkles } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,11 +18,13 @@ import { SiteHeader } from "@/components/site-header"
 import { UserMenu } from "@/components/user-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ReportsDialog } from "@/components/reports-dialog"
+import { AiAgendaDialog } from "@/components/ai-agenda-dialog"
 import { useMeetings } from "@/hooks/use-meetings"
 import { formatTimeRange } from "@/lib/datetime"
 
 export function AppHeader({ onCreate }: { onCreate: () => void }) {
   const [reportsOpen, setReportsOpen] = useState(false)
+  const [agendaOpen, setAgendaOpen] = useState(false)
   // Same query key as the list, so a newly created meeting shows up here too.
   const { data } = useMeetings()
   const meetings = data?.items ?? []
@@ -77,7 +79,18 @@ export function AppHeader({ onCreate }: { onCreate: () => void }) {
         <Button
           variant="outline"
           size="sm"
-          className="gap-1.5 text-xs hidden sm:flex"
+          className="gap-1.5 text-xs text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer"
+          onClick={() => setAgendaOpen(true)}
+          title="Paste an Agenda (AI LLM Parser)"
+        >
+          <Sparkles className="size-3.5 text-primary" />
+          <span>AI Agenda</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs hidden sm:flex cursor-pointer"
           onClick={() => setReportsOpen(true)}
           title="Weekly Report & Metrics"
         >
@@ -85,7 +98,7 @@ export function AppHeader({ onCreate }: { onCreate: () => void }) {
           <span>Reports</span>
         </Button>
 
-        <Button onClick={onCreate} size="sm">
+        <Button onClick={onCreate} size="sm" className="cursor-pointer">
           <Plus className="size-4" aria-hidden />
           <span className="hidden sm:inline">New meeting</span>
         </Button>
@@ -95,6 +108,7 @@ export function AppHeader({ onCreate }: { onCreate: () => void }) {
       </SiteHeader>
 
       <ReportsDialog open={reportsOpen} onOpenChange={setReportsOpen} />
+      <AiAgendaDialog open={agendaOpen} onOpenChange={setAgendaOpen} />
     </>
   )
 }

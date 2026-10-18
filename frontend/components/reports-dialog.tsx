@@ -191,17 +191,17 @@ export function ReportsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg sm:max-w-xl">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <DialogContent className="max-h-[88vh] overflow-y-auto w-full sm:max-w-xl p-5 sm:p-6">
+        <DialogHeader className="pr-6">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <FileSpreadsheet className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0">
               <DialogTitle className="text-xl font-bold tracking-tight">
                 Weekly Meetings Report
               </DialogTitle>
-              <DialogDescription className="text-xs">
+              <DialogDescription className="text-xs text-muted-foreground">
                 Automated event-driven pipeline on AWS (EventBridge, SQS, S3 & SES)
               </DialogDescription>
             </div>
@@ -210,8 +210,8 @@ export function ReportsDialog({
 
         <div className="space-y-4 pt-2">
           {/* Week Designation Selection */}
-          <div className="rounded-xl border border-border bg-card p-3 space-y-2.5 shadow-2xs">
-            <div className="flex items-center justify-between">
+          <div className="rounded-xl border border-border bg-card p-3.5 space-y-2.5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
               <label
                 htmlFor="designated-week-input"
                 className="text-xs font-semibold text-foreground flex items-center gap-1.5"
@@ -233,7 +233,7 @@ export function ReportsDialog({
                     key={w.week}
                     type="button"
                     onClick={() => setSelectedWeek(w.week)}
-                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-mono transition-all ${
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-mono transition-all cursor-pointer ${
                       isSelected
                         ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
                         : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border-border"
@@ -248,22 +248,22 @@ export function ReportsDialog({
 
             {/* Custom Input */}
             <div className="flex items-center gap-2 pt-0.5">
-              <span className="text-[11px] text-muted-foreground shrink-0">Custom Week:</span>
+              <span className="text-xs text-muted-foreground shrink-0">Custom Week:</span>
               <Input
                 id="designated-week-input"
                 type="text"
                 value={selectedWeek}
                 onChange={(e) => setSelectedWeek(e.target.value.toUpperCase())}
                 placeholder="e.g. 2026-W41"
-                className="h-7 text-xs font-mono bg-background"
+                className="h-8 text-xs font-mono bg-background"
               />
             </div>
           </div>
 
           {/* Key Metrics for Designated Week */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-border bg-card p-3 text-center shadow-2xs">
-              <span className="text-xs text-muted-foreground">Meetings</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="rounded-xl border border-border bg-card p-3 text-center shadow-xs">
+              <span className="text-xs text-muted-foreground font-medium">Meetings</span>
               <p className="mt-1 font-mono text-2xl font-bold text-foreground tabular-nums">
                 {isPreviewLoading ? (
                   <Loader2 className="size-5 animate-spin mx-auto text-muted-foreground" />
@@ -278,8 +278,8 @@ export function ReportsDialog({
               </span>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-3 text-center shadow-2xs">
-              <span className="text-xs text-muted-foreground">Total Time</span>
+            <div className="rounded-xl border border-border bg-card p-3 text-center shadow-xs">
+              <span className="text-xs text-muted-foreground font-medium">Total Time</span>
               <p className="mt-1 font-mono text-2xl font-bold text-primary tabular-nums">
                 {isPreviewLoading ? (
                   <Loader2 className="size-5 animate-spin mx-auto text-primary" />
@@ -294,8 +294,8 @@ export function ReportsDialog({
               </span>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-3 text-center shadow-2xs">
-              <span className="text-xs text-muted-foreground">Unique Attendees</span>
+            <div className="rounded-xl border border-border bg-card p-3 text-center shadow-xs">
+              <span className="text-xs text-muted-foreground font-medium">Unique Attendees</span>
               <p className="mt-1 font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                 {isPreviewLoading ? (
                   <Loader2 className="size-5 animate-spin mx-auto text-emerald-600" />
@@ -309,7 +309,7 @@ export function ReportsDialog({
 
           {/* Pipeline Configuration Details */}
           <div className="rounded-xl border border-border bg-muted/40 p-3.5 space-y-3 text-xs">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
                 <Clock className="size-3.5 text-primary" /> Schedule Trigger
               </span>
@@ -318,18 +318,18 @@ export function ReportsDialog({
               </Badge>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
                 <Send className="size-3.5 text-primary" /> Storage Bucket
               </span>
-              <span className="font-mono text-muted-foreground truncate max-w-[220px]">
+              <span className="font-mono text-muted-foreground text-[11px] truncate max-w-[240px]">
                 s3://spry-shkunda-reports-783216615378
               </span>
             </div>
 
             {/* Editable Receiver / Recipient Box */}
             <div className="space-y-1.5 pt-2 border-t border-border/60">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-1">
                 <label
                   htmlFor="report-recipient-email"
                   className="font-medium text-foreground flex items-center gap-1.5"
@@ -359,7 +359,7 @@ export function ReportsDialog({
                         localStorage.removeItem("spry_report_recipient")
                       }
                     }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm font-bold"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm font-bold cursor-pointer"
                     aria-label="Clear receiver email"
                   >
                     ×
@@ -377,16 +377,16 @@ export function ReportsDialog({
                 Designated Week & Recipient
               </span>
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-border bg-zinc-950 p-2.5 text-zinc-100 font-mono text-xs">
-              <div className="flex items-center gap-2 truncate mr-2">
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-zinc-950 p-2.5 text-zinc-100 font-mono text-xs overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                 <Terminal className="size-3.5 text-zinc-400 shrink-0" />
-                <span className="truncate">{commandText}</span>
+                <span className="truncate block font-mono text-[11px] text-zinc-200">{commandText}</span>
               </div>
               <Button
                 variant="ghost"
                 size="xs"
                 onClick={handleCopyCmd}
-                className="h-6 text-zinc-300 hover:text-white hover:bg-zinc-800 shrink-0"
+                className="h-6 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 shrink-0 cursor-pointer"
               >
                 {copiedCmd ? "Copied!" : "Copy"}
               </Button>
@@ -394,23 +394,23 @@ export function ReportsDialog({
           </div>
 
           {/* Actions: Send Email & Download CSV */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
             <Button
               variant="outline"
-              className="w-full gap-2 text-xs font-semibold h-9"
+              className="w-full gap-2 text-xs font-semibold h-10 px-3 cursor-pointer"
               onClick={handleSendEmail}
               disabled={sending}
             >
-              <Sparkles className="size-3.5 text-primary" />
-              <span>{sending ? "Queueing..." : `Send ${selectedWeek} to Receiver`}</span>
+              <Sparkles className="size-3.5 text-primary shrink-0" />
+              <span className="truncate">{sending ? "Queueing..." : `Send ${selectedWeek} to Receiver`}</span>
             </Button>
 
             <Button
-              className="w-full gap-2 text-xs font-semibold shadow-xs h-9"
+              className="w-full gap-2 text-xs font-semibold shadow-xs h-10 px-3 cursor-pointer"
               onClick={handleDownloadCsv}
             >
-              <Download className="size-3.5" />
-              <span>Download {selectedWeek} CSV</span>
+              <Download className="size-3.5 shrink-0" />
+              <span className="truncate">Download {selectedWeek} CSV</span>
             </Button>
           </div>
         </div>

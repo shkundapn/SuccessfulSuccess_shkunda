@@ -10,6 +10,7 @@ import {
   MapPin,
   MoreHorizontal,
   Pencil,
+  Sparkles,
   Trash2,
   Users,
   Video,
@@ -161,9 +162,29 @@ export function MeetingCard({
           ) : null}
         </div>
 
-        <div className="text-muted-foreground/75 flex items-center gap-1.5 text-[11px] font-mono">
-          <Calendar className="size-3" aria-hidden />
-          <span>{formatDateTimeStamp(meeting.starts_at)}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div className="text-muted-foreground/75 flex items-center gap-1.5 text-[11px] font-mono">
+            <Calendar className="size-3" aria-hidden />
+            <span>{formatDateTimeStamp(meeting.starts_at)}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onView(meeting)
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all cursor-pointer"
+            title="Paste raw notes with AI"
+          >
+            <Sparkles className="size-3 text-primary" />
+            <span>
+              {meeting.agenda?.title ||
+                (meeting.agenda?.items?.length
+                  ? `${meeting.agenda.items.length} agenda items`
+                  : "Paste Agenda (AI)")}
+            </span>
+          </button>
         </div>
 
         {/* Menu clicks bubble through the portal in React, so stop them reaching the card. */}
@@ -175,6 +196,10 @@ export function MeetingCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => onView(meeting)}>
+                <Sparkles className="size-4 text-primary" />
+                AI Agenda
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onView(meeting)}>
                 <Eye aria-hidden />
                 View details

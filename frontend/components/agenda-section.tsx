@@ -212,7 +212,7 @@ export function AgendaSection({
   }
 
   return (
-    <div className="space-y-4 pt-2">
+    <div id="agenda-section" className="space-y-4 pt-2">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
           <FileText className="size-4 text-primary" aria-hidden />

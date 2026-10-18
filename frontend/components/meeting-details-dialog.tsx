@@ -8,6 +8,7 @@ import {
   Mail,
   MapPin,
   Pencil,
+  Sparkles,
   Trash2,
   Users,
   Video,
@@ -90,6 +91,19 @@ export function MeetingDetailsDialog({
                   Upcoming • {relativeTime}
                 </span>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById("agenda-section")
+                  el?.scrollIntoView({ behavior: "smooth" })
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 hover:bg-primary/20 px-2.5 py-0.5 text-xs font-semibold text-primary transition-colors cursor-pointer ml-auto"
+                title="Jump to AI Agenda Parser"
+              >
+                <Sparkles className="size-3" />
+                {meeting.agenda ? "Agenda Configured" : "Paste Agenda (AI)"}
+              </button>
             </div>
             <DialogTitle className="text-2xl font-bold tracking-tight">{meeting.name}</DialogTitle>
             <DialogDescription className="flex flex-wrap items-center gap-2 pt-1">
