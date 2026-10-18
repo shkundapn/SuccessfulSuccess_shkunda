@@ -13,6 +13,8 @@ import {
   User,
   AlertCircle,
   FileText,
+  Mic,
+  MicOff,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -23,6 +25,37 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { parseAgenda, saveMeetingAgenda } from "@/lib/api"
 import type { Meeting, ParsedAgenda, AgendaItem, ActionItem } from "@/lib/types"
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean
+  0: { transcript: string }
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number
+  results: {
+    length: number
+    [index: number]: SpeechRecognitionResultLike
+  }
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string
+  message?: string
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start: () => void
+  stop: () => void
+  abort: () => void
+  onstart: (() => void) | null
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
+  onend: (() => void) | null
+}
 
 const MAX_PASTE_CHARS = 10000
 
@@ -73,6 +106,124 @@ export function AgendaSection({
         next.delete(key)
         return next
       })
+    }
+  }
+
+  // Voice speech-to-text state
+  const [isListening, setIsListening] = useState(false)
+  const [voiceLang, setVoiceLang] = useState<"uk-UA" | "en-US">("uk-UA")
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const basePastedTextRef = useRef<string>("")
+
+  const handleToggleVoice = async () => {
+    if (typeof window === "undefined") return
+
+    const win = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike
+    }
+
+    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition
+
+    if (!SpeechRecognitionClass) {
+      toast.error(
+        "Voice speech recognition is not supported in this browser (e.g. Firefox). Please use Google Chrome, Microsoft Edge, or Apple Safari, or type your text.",
+        { duration: 6000 }
+      )
+      return
+    }
+
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop()
+      } catch {
+        // ignore
+      }
+      setIsListening(false)
+      return
+    }
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((track) => track.stop())
+      } catch (err: unknown) {
+        const e = err as { name?: string; message?: string }
+        if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
+          toast.error(
+            "Microphone permission was denied. Please allow microphone access in your browser settings (click lock icon in address bar) and try again.",
+            { duration: 7000 }
+          )
+          return
+        } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
+          toast.error("No microphone device was detected. Please connect a microphone.", { duration: 6000 })
+          return
+        }
+      }
+    }
+
+    try {
+      basePastedTextRef.current = pastedText.trim()
+      const recognition = new SpeechRecognitionClass()
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = voiceLang
+
+      recognition.onstart = () => {
+        setIsListening(true)
+        toast.info(
+          `Microphone listening (${voiceLang === "uk-UA" ? "Ukrainian" : "English"}). Speak your agenda...`
+        )
+      }
+
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        let finalStr = ""
+        let interimStr = ""
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i]
+          if (res?.isFinal) {
+            finalStr += (res[0]?.transcript ?? "") + " "
+          } else {
+            interimStr += res?.[0]?.transcript ?? ""
+          }
+        }
+        const spoken = (finalStr + interimStr).trim()
+        const base = basePastedTextRef.current
+        setPastedText(base ? `${base} ${spoken}` : spoken)
+      }
+
+      recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+        setIsListening(false)
+        const code = event?.error
+        if (code === "not-allowed" || code === "service-not-allowed") {
+          toast.error(
+            "Microphone access blocked. Please allow microphone access in browser settings (lock icon in address bar).",
+            { duration: 7000 }
+          )
+        } else if (code === "network") {
+          toast.error(
+            "Speech recognition network error. (Note: if using Brave browser, disable Brave Shields for speech services, or use Chrome/Edge).",
+            { duration: 7000 }
+          )
+        } else if (code === "no-speech") {
+          toast.warning("No speech detected. Please speak closer to your microphone or try again.")
+        } else if (code === "audio-capture") {
+          toast.error("No microphone detected. Please check your audio hardware.")
+        } else if (code !== "aborted") {
+          toast.error(`Voice error: ${code || "unknown"}`)
+        }
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
+    } catch (e: unknown) {
+      setIsListening(false)
+      const err = e as { message?: string }
+      toast.error(`Could not start voice recognition: ${err.message || "unknown error"}`)
     }
   }
 
@@ -346,18 +497,71 @@ export function AgendaSection({
               </span>
             </div>
 
-            <Textarea
-              id="agenda-paste-box"
-              placeholder="e.g.: Пн 10:00, синк по прайсингу, 45 хв. 1) нові тарифи Pro — Олена, 15 хв 2) фідбек від клієнтів — Taras 3) що робимо з річною знижкою. Taras до п'ятниці збирає порівняння з конкурентами."
-              value={pastedText}
-              onChange={(e) => {
-                setPastedText(e.target.value)
-                if (parseError) setParseError(null)
-              }}
-              rows={3}
-              className="resize-y text-xs font-sans"
-              disabled={isParsing}
-            />
+            <div className="relative">
+              <Textarea
+                id="agenda-paste-box"
+                placeholder="e.g.: Пн 10:00, синк по прайсингу, 45 хв. 1) нові тарифи Pro — Олена, 15 хв 2) фідбек від клієнтів — Taras 3) що робимо з річною знижкою. Taras до п'ятниці збирає порівняння з конкурентами."
+                value={pastedText}
+                onChange={(e) => {
+                  setPastedText(e.target.value)
+                  if (parseError) setParseError(null)
+                }}
+                rows={3}
+                className="resize-y text-xs font-sans pr-20"
+                disabled={isParsing}
+              />
+              <div className="absolute right-2.5 top-2.5 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = voiceLang === "uk-UA" ? "en-US" : "uk-UA"
+                    setVoiceLang(next)
+                    toast.info(`Voice recognition set to ${next === "uk-UA" ? "Ukrainian" : "English"}`)
+                  }}
+                  className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-border bg-background/90 hover:bg-muted text-foreground transition-colors cursor-pointer shadow-2xs"
+                  title="Switch voice recognition language (Ukrainian / English)"
+                >
+                  {voiceLang === "uk-UA" ? "UA" : "EN"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleVoice}
+                  className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                    isListening
+                      ? "bg-red-500 text-white animate-pulse ring-2 ring-red-400/50"
+                      : "text-muted-foreground hover:text-primary hover:bg-muted"
+                  }`}
+                  title={
+                    isListening
+                      ? "Listening... click to stop"
+                      : `Voice input (${voiceLang === "uk-UA" ? "Ukrainian" : "English"})`
+                  }
+                  aria-label="Voice input"
+                >
+                  {isListening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {isListening ? (
+              <div className="flex items-center justify-between rounded-lg bg-red-500/10 border border-red-500/25 px-2.5 py-1.5 text-xs text-red-600 dark:text-red-400">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-red-500 animate-ping" />
+                  <span className="font-medium text-[11px]">
+                    Listening ({voiceLang === "uk-UA" ? "Ukrainian" : "English"})... speak now.
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="destructive"
+                  className="h-5 text-[10px] px-2 py-0 cursor-pointer"
+                  onClick={handleToggleVoice}
+                >
+                  Done Speaking
+                </Button>
+              </div>
+            ) : null}
 
             {parseError ? (
               <div className="flex items-center gap-2 text-destructive text-xs p-2 rounded-md bg-destructive/10">

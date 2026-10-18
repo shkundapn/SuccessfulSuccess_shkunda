@@ -5,6 +5,7 @@ from app.ai.agenda import (
     AgendaItem,
     AgendaParseError,
     ParsedAgenda,
+    ParticipantInfo,
     cost_usd,
     parse_agenda,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "AgendaItem",
     "AgendaParseError",
     "ParsedAgenda",
+    "ParticipantInfo",
     "cost_usd",
     "parse_agenda",
 ]

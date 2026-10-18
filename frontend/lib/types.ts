@@ -19,10 +19,17 @@ export type ActionItem = {
   due: string | null
 }
 
+export type ParticipantInfo = {
+  name: string
+  email?: string | null
+}
+
 export type ParsedAgenda = {
   title: string | null
   starts_at: string | null
   duration_minutes: number | null
+  location?: string | null
+  participants?: ParticipantInfo[]
   items: AgendaItem[]
   action_items: ActionItem[]
   language: string | null

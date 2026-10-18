@@ -124,8 +124,22 @@ function defaultValues(
   }
 }
 
+interface SpeechRecognitionResultLike {
+  isFinal: boolean
+  0: { transcript: string }
+}
+
 interface SpeechRecognitionEventLike {
-  results: Array<Array<{ transcript: string }>>
+  resultIndex: number
+  results: {
+    length: number
+    [index: number]: SpeechRecognitionResultLike
+  }
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string
+  message?: string
 }
 
 interface SpeechRecognitionLike {
@@ -134,9 +148,10 @@ interface SpeechRecognitionLike {
   lang: string
   start: () => void
   stop: () => void
+  abort: () => void
   onstart: (() => void) | null
   onresult: ((event: SpeechRecognitionEventLike) => void) | null
-  onerror: (() => void) | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
   onend: (() => void) | null
 }
 
@@ -163,7 +178,9 @@ export function MeetingFormDialog({
   const [promptText, setPromptText] = useState("")
   const [isAiParsing, setIsAiParsing] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [voiceLang, setVoiceLang] = useState<"uk-UA" | "en-US">("uk-UA")
   const [aiSuccessMsg, setAiSuccessMsg] = useState<string | null>(null)
+  const [aiSuggestedFields, setAiSuggestedFields] = useState<Set<string>>(new Set())
   const [parsedAgendaForMeeting, setParsedAgendaForMeeting] = useState<{
     agenda: ParsedAgenda
     model: string
@@ -172,6 +189,7 @@ export function MeetingFormDialog({
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const basePromptTextRef = useRef<string>("")
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -200,6 +218,7 @@ export function MeetingFormDialog({
       setIsAiParsing(false)
       setIsListening(false)
       setAiSuccessMsg(null)
+      setAiSuggestedFields(new Set())
       setParsedAgendaForMeeting(null)
       try {
         recognitionRef.current?.stop()
@@ -211,7 +230,7 @@ export function MeetingFormDialog({
   }
 
   // Voice speech-to-text handler
-  const handleToggleVoice = () => {
+  const handleToggleVoice = async () => {
     if (typeof window === "undefined") return
 
     const win = window as unknown as {
@@ -222,7 +241,10 @@ export function MeetingFormDialog({
     const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition
 
     if (!SpeechRecognitionClass) {
-      toast.info("Voice input is not supported in this browser. Please type your prompt.")
+      toast.error(
+        "Voice speech recognition is not supported in this browser (e.g. Firefox). Please use Google Chrome, Microsoft Edge, or Apple Safari, or type your prompt.",
+        { duration: 6000 }
+      )
       return
     }
 
@@ -236,24 +258,76 @@ export function MeetingFormDialog({
       return
     }
 
+    // Step 1: Explicitly request microphone stream to ensure browser & system permission
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((track) => track.stop())
+      } catch (err: unknown) {
+        const e = err as { name?: string; message?: string }
+        if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
+          toast.error(
+            "Microphone permission was denied. Please allow microphone access in your browser settings (click lock icon in address bar) and try again.",
+            { duration: 7000 }
+          )
+          return
+        } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
+          toast.error("No microphone device was detected. Please connect a microphone.", { duration: 6000 })
+          return
+        }
+      }
+    }
+
     try {
+      basePromptTextRef.current = promptText.trim()
       const recognition = new SpeechRecognitionClass()
-      recognition.continuous = false
-      recognition.interimResults = false
-      recognition.lang = navigator.language || "uk-UA"
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = voiceLang
 
       recognition.onstart = () => {
         setIsListening(true)
-        toast.info("Listening... speak your meeting details")
+        toast.info(
+          `Microphone listening (${voiceLang === "uk-UA" ? "Ukrainian" : "English"}). Speak now...`
+        )
       }
 
       recognition.onresult = (event: SpeechRecognitionEventLike) => {
-        const transcript = event.results[0]?.[0]?.transcript ?? ""
-        setPromptText((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        let finalStr = ""
+        let interimStr = ""
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i]
+          if (res?.isFinal) {
+            finalStr += (res[0]?.transcript ?? "") + " "
+          } else {
+            interimStr += res?.[0]?.transcript ?? ""
+          }
+        }
+        const spoken = (finalStr + interimStr).trim()
+        const base = basePromptTextRef.current
+        setPromptText(base ? `${base} ${spoken}` : spoken)
       }
 
-      recognition.onerror = () => {
+      recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
         setIsListening(false)
+        const code = event?.error
+        if (code === "not-allowed" || code === "service-not-allowed") {
+          toast.error(
+            "Microphone access blocked. Please allow microphone access in browser settings (lock icon in address bar).",
+            { duration: 7000 }
+          )
+        } else if (code === "network") {
+          toast.error(
+            "Speech recognition network error. (Note: if using Brave browser, disable Brave Shields for speech services, or use Chrome/Edge).",
+            { duration: 7000 }
+          )
+        } else if (code === "no-speech") {
+          toast.warning("No speech detected. Please speak closer to your microphone or try again.")
+        } else if (code === "audio-capture") {
+          toast.error("No microphone detected. Please check your audio hardware.")
+        } else if (code !== "aborted") {
+          toast.error(`Voice error: ${code || "unknown"}`)
+        }
       }
 
       recognition.onend = () => {
@@ -262,8 +336,10 @@ export function MeetingFormDialog({
 
       recognitionRef.current = recognition
       recognition.start()
-    } catch {
+    } catch (e: unknown) {
       setIsListening(false)
+      const err = e as { message?: string }
+      toast.error(`Could not start voice recognition: ${err.message || "unknown error"}`)
     }
   }
 
@@ -331,31 +407,54 @@ export function MeetingFormDialog({
         form.setValue("endTime", `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`, { shouldValidate: true })
       }
 
-      // 3. Location / Call link
-      const urlMatch = promptText.match(/(https?:\/\/[^\s]+)/)
-      if (urlMatch) {
-        form.setValue("location", urlMatch[1], { shouldValidate: true })
+      // Track AI suggested fields to highlight in UI
+      const suggested = new Set<string>()
+      suggested.add("name")
+
+      // 3. Location / Room / Call link
+      if (agenda.location && agenda.location.trim()) {
+        form.setValue("location", agenda.location.trim(), { shouldValidate: true })
+        suggested.add("location")
+      } else {
+        const urlMatch = promptText.match(/(https?:\/\/[^\s]+)/)
+        if (urlMatch) {
+          form.setValue("location", urlMatch[1], { shouldValidate: true })
+          suggested.add("location")
+        }
       }
 
-      // 4. Participants
+      // 4. Participants (from explicit LLM attendees list + item/action owners)
       const extractedParticipants: Array<{ name: string; email: string }> = []
       const seenNames = new Set<string>()
 
-      agenda.items?.forEach((item) => {
-        if (item.owner && !seenNames.has(item.owner.trim().toLowerCase())) {
-          seenNames.add(item.owner.trim().toLowerCase())
-          extractedParticipants.push({ name: item.owner.trim(), email: "" })
+      const addParticipant = (name: string, email?: string | null) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        const key = trimmed.toLowerCase()
+        if (!seenNames.has(key)) {
+          seenNames.add(key)
+          extractedParticipants.push({ name: trimmed, email: (email ?? "").trim() })
         }
+      }
+
+      // 4a. Explicit participants identified by LLM
+      agenda.participants?.forEach((p) => {
+        if (p?.name) addParticipant(p.name, p.email)
       })
+
+      // 4b. Owners from agenda topics
+      agenda.items?.forEach((item) => {
+        if (item.owner) addParticipant(item.owner)
+      })
+
+      // 4c. Owners from action items
       agenda.action_items?.forEach((action) => {
-        if (action.owner && !seenNames.has(action.owner.trim().toLowerCase())) {
-          seenNames.add(action.owner.trim().toLowerCase())
-          extractedParticipants.push({ name: action.owner.trim(), email: "" })
-        }
+        if (action.owner) addParticipant(action.owner)
       })
 
       if (extractedParticipants.length > 0) {
         form.setValue("participants", extractedParticipants, { shouldValidate: true })
+        suggested.add("participants")
       }
 
       // 5. Description from topics & action items
@@ -380,7 +479,16 @@ export function MeetingFormDialog({
       }
       if (descLines.length > 0) {
         form.setValue("description", descLines.join("\n"), { shouldValidate: true })
+        suggested.add("description")
       }
+
+      if (agenda.starts_at) {
+        suggested.add("date")
+        suggested.add("startTime")
+        suggested.add("endTime")
+      }
+
+      setAiSuggestedFields(suggested)
 
       setParsedAgendaForMeeting({
         agenda,
@@ -500,24 +608,62 @@ export function MeetingFormDialog({
                     setPromptText(e.target.value)
                     if (aiSuccessMsg) setAiSuccessMsg(null)
                   }}
-                  placeholder="e.g.: Пн 10:00, синк по прайсингу, 45 хв. 1) нові тарифи Pro — Олена, 15 хв 2) фідбек від клієнтів — Taras"
-                  className="text-xs bg-background resize-y min-h-[64px] pr-10"
+                  placeholder="e.g.: Пн 10:00, синк по прайсингу в кабінеті 302, 45 хв. Учасники: Олена, Taras. 1) нові тарифи Pro — Олена, 15 хв"
+                  className="text-xs bg-background resize-y min-h-[68px] pr-20"
                   disabled={isAiParsing}
                 />
-                <button
-                  type="button"
-                  onClick={handleToggleVoice}
-                  className={`absolute right-2.5 top-2.5 p-1.5 rounded-full transition-colors cursor-pointer ${
-                    isListening
-                      ? "bg-red-500 text-white animate-pulse"
-                      : "text-muted-foreground hover:text-primary hover:bg-muted"
-                  }`}
-                  title={isListening ? "Listening... click to stop" : "Say meeting prompt (Voice Input)"}
-                  aria-label="Voice input"
-                >
-                  {isListening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
-                </button>
+                <div className="absolute right-2 top-2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = voiceLang === "uk-UA" ? "en-US" : "uk-UA"
+                      setVoiceLang(next)
+                      toast.info(`Voice recognition set to ${next === "uk-UA" ? "Ukrainian" : "English"}`)
+                    }}
+                    className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-border bg-background/90 hover:bg-muted text-foreground transition-colors cursor-pointer shadow-2xs"
+                    title="Switch voice recognition language (Ukrainian / English)"
+                  >
+                    {voiceLang === "uk-UA" ? "UA" : "EN"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleVoice}
+                    className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                      isListening
+                        ? "bg-red-500 text-white animate-pulse ring-2 ring-red-400/50"
+                        : "text-muted-foreground hover:text-primary hover:bg-muted"
+                    }`}
+                    title={
+                      isListening
+                        ? "Listening... click to stop"
+                        : `Voice input (${voiceLang === "uk-UA" ? "Ukrainian" : "English"})`
+                    }
+                    aria-label="Voice input"
+                  >
+                    {isListening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+                  </button>
+                </div>
               </div>
+
+              {isListening ? (
+                <div className="flex items-center justify-between rounded-lg bg-red-500/10 border border-red-500/25 px-2.5 py-1.5 text-xs text-red-600 dark:text-red-400">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-red-500 animate-ping" />
+                    <span className="font-medium text-[11px]">
+                      Listening ({voiceLang === "uk-UA" ? "Ukrainian" : "English"})... speak now.
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="destructive"
+                    className="h-5 text-[10px] px-2 py-0 cursor-pointer"
+                    onClick={handleToggleVoice}
+                  >
+                    Done Speaking
+                  </Button>
+                </div>
+              ) : null}
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <div className="text-[11px] text-muted-foreground">
@@ -567,13 +713,30 @@ export function MeetingFormDialog({
             </div>
           ) : null}
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="name">Name</Label>
+              {aiSuggestedFields.has("name") ? (
+                <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <Sparkles className="size-2.5" /> AI suggested
+                </span>
+              ) : null}
+            </div>
             <Input
               id="name"
               placeholder="Sprint planning"
               aria-invalid={!!errors.name}
               aria-describedby={errors.name ? "name-error" : undefined}
               {...register("name")}
+              onChange={(e) => {
+                register("name").onChange(e)
+                if (aiSuggestedFields.has("name")) {
+                  setAiSuggestedFields((prev) => {
+                    const next = new Set(prev)
+                    next.delete("name")
+                    return next
+                  })
+                }
+              }}
             />
             {errors.name ? (
               <p id="name-error" className="text-destructive text-sm">
@@ -583,12 +746,29 @@ export function MeetingFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Description</Label>
+              {aiSuggestedFields.has("description") ? (
+                <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <Sparkles className="size-2.5" /> AI suggested
+                </span>
+              ) : null}
+            </div>
             <Textarea
               id="description"
               rows={3}
               placeholder="What is this meeting about?"
               {...register("description")}
+              onChange={(e) => {
+                register("description").onChange(e)
+                if (aiSuggestedFields.has("description")) {
+                  setAiSuggestedFields((prev) => {
+                    const next = new Set(prev)
+                    next.delete("description")
+                    return next
+                  })
+                }
+              }}
             />
             {errors.description ? (
               <p className="text-destructive text-sm">{errors.description.message}</p>
@@ -596,8 +776,29 @@ export function MeetingFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input id="location" placeholder="Room 3 or a meeting link" {...register("location")} />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="location">Location</Label>
+              {aiSuggestedFields.has("location") ? (
+                <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <Sparkles className="size-2.5" /> AI suggested
+                </span>
+              ) : null}
+            </div>
+            <Input
+              id="location"
+              placeholder="Room 3 or a meeting link"
+              {...register("location")}
+              onChange={(e) => {
+                register("location").onChange(e)
+                if (aiSuggestedFields.has("location")) {
+                  setAiSuggestedFields((prev) => {
+                    const next = new Set(prev)
+                    next.delete("location")
+                    return next
+                  })
+                }
+              }}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -651,17 +852,36 @@ export function MeetingFormDialog({
             </div>
           </div>
 
-          <Controller
-            control={control}
-            name="participants"
-            render={({ field }) => (
-              <ParticipantsInput
-                value={field.value}
-                onChange={field.onChange}
-                errors={participantErrors(errors.participants)}
-              />
-            )}
-          />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Participants</Label>
+              {aiSuggestedFields.has("participants") ? (
+                <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <Sparkles className="size-2.5" /> AI suggested
+                </span>
+              ) : null}
+            </div>
+            <Controller
+              control={control}
+              name="participants"
+              render={({ field }) => (
+                <ParticipantsInput
+                  value={field.value}
+                  onChange={(val) => {
+                    field.onChange(val)
+                    if (aiSuggestedFields.has("participants")) {
+                      setAiSuggestedFields((prev) => {
+                        const next = new Set(prev)
+                        next.delete("participants")
+                        return next
+                      })
+                    }
+                  }}
+                  errors={participantErrors(errors.participants)}
+                />
+              )}
+            />
+          </div>
           {errors.participants?.message ? (
             <p className="text-destructive text-sm">{errors.participants.message}</p>
           ) : null}
