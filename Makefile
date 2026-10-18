@@ -444,7 +444,7 @@ aws-deploy-ai: ## Deploy the agenda-parser Lambda function and URL (infra/ai.yml
 			CognitoUserPoolId="$$user_pool" \
 			CognitoClientId="$$client_id" \
 			CorsOrigins="$$cors_orig" \
-			"ParserModel=$(if $(PARSER_MODEL),$(PARSER_MODEL),anthropic.claude-opus-5-5)" \
+			"ParserModel=$(if $(PARSER_MODEL),$(PARSER_MODEL),anthropic.claude-haiku-5-5)" \
 			"AppTimezone=$(APP_TIMEZONE)"
 
 aws-ai-url: ## Print the deployed agenda parser function URL

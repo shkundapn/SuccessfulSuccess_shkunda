@@ -1,10 +1,10 @@
 """AWS Lambda entrypoint for the agenda-parser function URL."""
 
 import asyncio
-from datetime import date
 import json
 import logging
 import time
+from datetime import date
 from typing import Any
 
 from app.ai.agenda import PROMPT_VERSION, AgendaParseError, cost_usd, parse_agenda

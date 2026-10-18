@@ -54,3 +54,6 @@ jobs:
           aws lambda update-function-code \
             --function-name spry-shkunda-report-builder \
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          aws lambda update-function-code \
+            --function-name spry-shkunda-agenda-parser \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

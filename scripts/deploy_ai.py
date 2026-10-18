@@ -31,7 +31,7 @@ parameters = [
     {"ParameterKey": "CognitoUserPoolId", "ParameterValue": "us-east-1_dLIUUyTHp"},
     {"ParameterKey": "CognitoClientId", "ParameterValue": "6s22d1p7brc05pss5gpkuvalnv"},
     {"ParameterKey": "CorsOrigins", "ParameterValue": "*"},
-    {"ParameterKey": "ParserModel", "ParameterValue": "anthropic.claude-opus-5-5"},
+    {"ParameterKey": "ParserModel", "ParameterValue": "anthropic.claude-haiku-5-5"},
     {"ParameterKey": "AppTimezone", "ParameterValue": "Europe/Kyiv"},
 ]
 

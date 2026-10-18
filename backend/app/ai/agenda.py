@@ -1,8 +1,7 @@
 """Core AI agenda parser module using Amazon Bedrock and Claude."""
 
-from datetime import date
 import logging
-import os
+from datetime import date
 from typing import Any
 
 import boto3

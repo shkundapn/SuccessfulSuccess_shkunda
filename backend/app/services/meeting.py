@@ -71,9 +71,7 @@ class MeetingService:
         if not await self.repo.delete(meeting_id):
             raise MeetingNotFoundError(meeting_id)
 
-    async def save_agenda(
-        self, meeting_id: uuid.UUID, payload: AgendaSavePayload
-    ) -> Meeting:
+    async def save_agenda(self, meeting_id: uuid.UUID, payload: AgendaSavePayload) -> Meeting:
         meeting = await self.get(meeting_id)
         suggestion_data = None
         if payload.ai_suggestion is not None:

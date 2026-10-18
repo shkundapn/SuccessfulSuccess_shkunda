@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # Bedrock LLM parser configuration (Lab 6)
     aws_region: str = Field(default="us-east-1", alias="AWS_REGION")
-    parser_model: str = Field(default="anthropic.claude-opus-5-5", alias="PARSER_MODEL")
+    parser_model: str = Field(default="anthropic.claude-haiku-5-5", alias="PARSER_MODEL")
 
     @field_validator("app_timezone")
     @classmethod

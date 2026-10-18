@@ -153,4 +153,3 @@ class AgendaSavePayload(BaseModel):
     ai_suggestion: dict[str, Any] | None = None
     model: str | None = None
     prompt_version: str | None = None
-
