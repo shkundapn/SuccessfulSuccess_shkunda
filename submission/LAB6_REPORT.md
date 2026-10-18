@@ -9,18 +9,19 @@
 
 ## 1. Commit & Repository Artifacts
 
-- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/1eed84e38fe22d1ad1ed625c2fa03d70c2b1569c](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/1eed84e38fe22d1ad1ed625c2fa03d70c2b1569c)
+- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/d5fee182ebbf8fdfef7d0b1f1ff72c5b907a6743](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/d5fee182ebbf8fdfef7d0b1f1ff72c5b907a6743)
 
 This implementation adds:
-1. **Core Parser**: `backend/app/ai/agenda.py` (Pydantic schema `ParsedAgenda`, `RECORD_AGENDA` tool, system prompt with date/timezone context, dual-engine fallback).
+1. **Core Parser**: `backend/app/ai/agenda.py` (Pydantic schema `ParsedAgenda` with `location` and `participants`, `RECORD_AGENDA` tool, system prompt with date/timezone context, dual-engine fallback between Claude and Nova).
 2. **Lambda Handler & URL**: `backend/app/ai/agenda_lambda.py` (Cognito JWKS verification, 10,000 char limit check, CORS, structured JSON logging).
 3. **Infrastructure**: `infra/ai.yml` (CloudFormation template for `spry-shkunda-ai` outside VPC with IAM permissions for Amazon Bedrock).
 4. **Database & API**:
    - Migration `backend/alembic/versions/0003_meeting_agenda_and_ai_suggestion.py` (adds `agenda` and `ai_suggestion` JSONB columns).
    - Route `POST /api/v1/meetings/{id}/agenda` in `backend/app/api/v1/meetings.py`.
 5. **Frontend UI**:
-   - `frontend/components/agenda-section.tsx`: Paste an agenda textarea, character counter, AI parsing spinner with `AbortController` cancel button, pre-filled form with interactive "suggested" badges, and Save button.
-   - `frontend/components/meeting-details-dialog.tsx`: Embedded agenda viewer and editor.
+   - `frontend/components/agenda-section.tsx`: Paste an agenda textarea, character counter, AI parsing spinner with `AbortController` cancel button, pre-filled form with interactive "suggested" badges, voice input (speech-to-text with real-time streaming and UA/EN language switcher), and Save button.
+   - `frontend/components/meeting-form-dialog.tsx`: Create meeting from prompt with automated pre-fill of name, date, time slot, room/location, attendees, topics & actions.
+   - `frontend/components/ai-agenda-dialog.tsx`: Dedicated top navigation and card action modal for AI agenda management.
 6. **Architecture Decision Record**: `docs/adr/0006-llm-agenda-parsing.md`.
 
 ---
@@ -31,7 +32,7 @@ Real structured JSON log lines captured from CloudWatch log group `/aws/lambda/s
 
 **Production Run with Amazon Nova Lite (`amazon.nova-lite-v1:0` — fastest & lowest cost)**:
 ```json
-[INFO]	2026-10-18T11:06:14.902Z	adf74c46-ccff-4643-a7ca-3a55084931ed	{"event": "agenda_parsed", "user": "74f8a448-2001-7000-4744-df44d0abc178", "model": "amazon.nova-lite-v1:0", "prompt_version": "agenda-v1", "input_tokens": 1083, "output_tokens": 629, "latency_ms": 4525, "cost_usd": 0.004228}
+{"event": "agenda_parsed", "user": "74f8a448-2001-7000-4744-df44d0abc178", "model": "amazon.nova-lite-v1:0", "prompt_version": "agenda-v1", "input_tokens": 1337, "output_tokens": 274, "latency_ms": 2559, "cost_usd": 0.000146}
 ```
 
 **Alternative Run with Claude Opus 5.5 (`anthropic.claude-opus-5-5`)**:
