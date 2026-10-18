@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -47,6 +48,7 @@ class MeetingCreate(BaseModel):
     starts_at: datetime
     ends_at: datetime
     participants: list[ParticipantCreate] = Field(default_factory=list)
+    agenda: dict[str, Any] | None = None
 
     @field_validator("name")
     @classmethod
@@ -105,6 +107,8 @@ class MeetingRead(BaseModel):
     participants: list[ParticipantRead]
     created_at: datetime
     updated_at: datetime
+    agenda: dict[str, Any] | None = None
+    ai_suggestion: dict[str, Any] | None = None
 
     @field_serializer("starts_at", "ends_at", "created_at", "updated_at")
     def _in_app_timezone(self, value: datetime) -> str:
@@ -142,3 +146,11 @@ class UserRead(BaseModel):
 
 class UserSync(BaseModel):
     id_token: str = Field(min_length=1, description="The Cognito ID token from the same sign-in")
+
+
+class AgendaSavePayload(BaseModel):
+    agenda: dict[str, Any]
+    ai_suggestion: dict[str, Any] | None = None
+    model: str | None = None
+    prompt_version: str | None = None
+

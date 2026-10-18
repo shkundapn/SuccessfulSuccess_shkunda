@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { AgendaSection } from "@/components/agenda-section"
 import {
   Dialog,
   DialogContent,
@@ -44,12 +45,14 @@ export function MeetingDetailsDialog({
   onOpenChange,
   onEdit,
   onDelete,
+  onMeetingUpdated,
 }: {
   meeting?: Meeting
   open: boolean
   onOpenChange: (open: boolean) => void
   onEdit: (meeting: Meeting) => void
   onDelete: (meeting: Meeting) => void
+  onMeetingUpdated?: (meeting: Meeting) => void
 }) {
   const editRef = useRef<HTMLButtonElement>(null)
   const status = meeting ? getMeetingStatus(meeting.starts_at, meeting.ends_at) : "upcoming"
@@ -197,6 +200,15 @@ export function MeetingDetailsDialog({
               </ul>
             )}
           </section>
+
+          <Separator />
+
+          <AgendaSection
+            meeting={meeting}
+            onSaved={(updated) => {
+              if (onMeetingUpdated) onMeetingUpdated(updated)
+            }}
+          />
 
           <DialogFooter className="flex flex-wrap items-center justify-between gap-2 sm:justify-between">
             <Button variant="destructive" onClick={() => onDelete(meeting)}>

@@ -40,6 +40,7 @@ APP_STACK ?= $(PROJECT_NAME)-backend
 ECR_STACK ?= $(PROJECT_NAME)-ecr
 FRONTEND_STACK ?= $(PROJECT_NAME)-frontend
 REPORTS_STACK ?= $(PROJECT_NAME)-reports
+AI_STACK ?= $(PROJECT_NAME)-ai
 IMAGE_TAG ?= latest
 # x86_64 or arm64. arm64 is ~20% cheaper on Lambda and builds natively on
 # Apple Silicon; the image platform is derived from it so the two cannot drift.
@@ -413,11 +414,51 @@ report-now: ## Build a weekly report on demand via SQS: make report-now WEEK=202
 	echo "Sending report request to SQS queue ($$q_url): $$payload"; \
 	$(AWS) sqs send-message --queue-url "$$q_url" --message-body "$$payload"
 
+llm-hello: ## Test Bedrock connectivity from your laptop (Part 4, Step 1)
+	python scripts/llm_hello.py
+
+parse: ## Parse an agenda text from your laptop (Part 4, Step 2): make parse TEXT="..."
+	python scripts/parse.py $(if $(TEXT),"$(TEXT)",$(if $(text),"$(text)",))
+
+aws-deploy-ai: ## Deploy the agenda-parser Lambda function and URL (infra/ai.yml)
+	$(require-aws-credentials)
+	@echo "Deploying $(AI_STACK)..."
+	@fn=$$($(call stack-output,$(APP_STACK),FunctionName) 2>/dev/null | tr -d '[:space:]'); \
+	image_uri=$$($(AWS) lambda get-function-configuration --function-name "$$fn" \
+		--query 'Code.ImageUri' --output text 2>/dev/null | tr -d '[:space:]'); \
+	user_pool=$$($(call stack-output,$(AUTH_STACK),UserPoolId) 2>/dev/null | tr -d '[:space:]'); \
+	client_id=$$($(call stack-output,$(AUTH_STACK),UserPoolClientId) 2>/dev/null | tr -d '[:space:]'); \
+	allowed=$$($(call stack-output,$(FRONTEND_STACK),AllowedOrigins) 2>/dev/null | tr -d '[:space:]'); \
+	cors_orig=$$(if [ -n "$$allowed" ] && [ "$$allowed" != "None" ]; then echo "$$allowed"; else echo "*"; fi); \
+	$(call wait-stack-idle,$(AI_STACK)); \
+	$(call clear-failed-create,$(AI_STACK)); \
+	$(AWS) cloudformation deploy \
+		--stack-name $(AI_STACK) \
+		--template-file infra/ai.yml \
+		--capabilities CAPABILITY_IAM \
+		--no-fail-on-empty-changeset \
+		$(STACK_TAGS) \
+		--parameter-overrides \
+			"ProjectName=$(PROJECT_NAME)" \
+			ImageUri="$$image_uri" \
+			CognitoUserPoolId="$$user_pool" \
+			CognitoClientId="$$client_id" \
+			CorsOrigins="$$cors_orig" \
+			"ParserModel=$(if $(PARSER_MODEL),$(PARSER_MODEL),anthropic.claude-opus-5-5)" \
+			"AppTimezone=$(APP_TIMEZONE)"
+
+aws-ai-url: ## Print the deployed agenda parser function URL
+	@$(call stack-output,$(AI_STACK),AgendaParserUrl)
+
 aws-destroy: ## Delete every stack, including the database and its data
 	$(require-aws-credentials)
-	@printf 'Delete %s, %s, %s and %s? The Aurora cluster and all its data, and every user account, go with them (no snapshot). Type yes: ' \
-		"$(FRONTEND_STACK)" "$(APP_STACK)" "$(AUTH_STACK)" "$(ECR_STACK)"; \
+	@printf 'Delete %s, %s, %s, %s and %s? The Aurora cluster and all its data, and every user account, go with them (no snapshot). Type yes: ' \
+		"$(FRONTEND_STACK)" "$(AI_STACK)" "$(REPORTS_STACK)" "$(APP_STACK)" "$(AUTH_STACK)"; \
 		read answer; test "$$answer" = "yes" || { echo "Aborted."; exit 1; }
+	-$(AWS) cloudformation delete-stack --stack-name $(AI_STACK)
+	-$(AWS) cloudformation wait stack-delete-complete --stack-name $(AI_STACK)
+	-$(AWS) cloudformation delete-stack --stack-name $(REPORTS_STACK)
+	-$(AWS) cloudformation wait stack-delete-complete --stack-name $(REPORTS_STACK)
 	@bucket=$$($(call stack-output,$(FRONTEND_STACK),BucketName) 2>/dev/null | tr -d '[:space:]'); \
 		if [ -n "$$bucket" ] && [ "$$bucket" != "None" ]; then \
 			echo "Emptying s3://$$bucket"; \

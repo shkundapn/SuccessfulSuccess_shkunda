@@ -2,11 +2,13 @@ import { signOut } from "aws-amplify/auth"
 
 import { getAccessToken } from "@/lib/auth"
 import type {
+  AgendaSaveInput,
   ApiErrorBody,
   ApiErrorDetail,
   Meeting,
   MeetingCreateInput,
   MeetingList,
+  ParsedAgenda,
   UserProfile,
 } from "@/lib/types"
 
@@ -163,5 +165,65 @@ export function requestWeeklyReport(payload?: { week?: string; recipient?: strin
       body: JSON.stringify(payload ?? {}),
     },
   )
+}
+
+export const AGENDA_PARSER_URL =
+  process.env.NEXT_PUBLIC_AGENDA_PARSER_URL || ""
+
+export async function parseAgenda(
+  text: string,
+  today: string,
+  tz: string,
+  signal?: AbortSignal,
+): Promise<{
+  agenda: ParsedAgenda
+  model: string
+  prompt_version: string
+  cost_usd?: number
+  latency_ms?: number
+}> {
+  const token = await getAccessToken()
+  const url = AGENDA_PARSER_URL || `${API_BASE_URL}/api/v1/ai/parse-agenda`
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ text, today, tz }),
+      signal,
+    })
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw err
+    }
+    throw new ApiError(0, "network_error", "Could not reach the agenda parser service.", [])
+  }
+
+  if (response.status === 401) {
+    void signOut()
+  }
+
+  const textResp = await response.text()
+  const payload = textResp ? JSON.parse(textResp) : null
+
+  if (!response.ok) {
+    const errorMsg = payload?.error ?? `Parsing failed with status ${response.status}.`
+    throw new ApiError(response.status, "parser_error", errorMsg, [])
+  }
+
+  return payload
+}
+
+export function saveMeetingAgenda(
+  meetingId: string,
+  payload: AgendaSaveInput,
+): Promise<Meeting> {
+  return request<Meeting>(`/api/v1/meetings/${meetingId}/agenda`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
 }
 

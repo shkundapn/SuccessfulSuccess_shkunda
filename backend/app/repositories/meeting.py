@@ -101,3 +101,16 @@ class MeetingRepository:
             )
             or 0
         )
+
+    async def save_agenda(
+        self,
+        meeting: Meeting,
+        agenda: dict,
+        ai_suggestion: dict | None = None,
+    ) -> Meeting:
+        meeting.agenda = agenda
+        if ai_suggestion is not None:
+            meeting.ai_suggestion = ai_suggestion
+        await self.session.commit()
+        await self.session.refresh(meeting)
+        return meeting

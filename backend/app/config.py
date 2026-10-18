@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # empty they are fetched from Cognito on first use.
     cognito_jwks: str = ""
 
+    # Bedrock LLM parser configuration (Lab 6)
+    aws_region: str = Field(default="us-east-1", alias="AWS_REGION")
+    parser_model: str = Field(default="anthropic.claude-opus-5-5", alias="PARSER_MODEL")
+
     @field_validator("app_timezone")
     @classmethod
     def _validate_timezone(cls, value: str) -> str:

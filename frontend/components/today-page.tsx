@@ -470,6 +470,10 @@ export function TodayPage({ initialDialogOpen = false }: { initialDialogOpen?: b
         meeting={current}
         onEdit={onEdit}
         onDelete={onDelete}
+        onMeetingUpdated={(updated) => {
+          setSelected(updated)
+          void refetch()
+        }}
       />
       <DeleteMeetingDialog
         open={dialog.kind === "delete"}
