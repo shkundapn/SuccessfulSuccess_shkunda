@@ -1,8 +1,14 @@
-"use client"
-
 import { zodResolver } from "@hookform/resolvers/zod"
-import { CalendarIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import {
+  CalendarIcon,
+  CheckCircle2,
+  Loader2,
+  Mic,
+  MicOff,
+  Sparkles,
+  XCircle,
+} from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -23,9 +29,9 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import { useCreateMeeting, useUpdateMeeting } from "@/hooks/use-meetings"
-import { ApiError } from "@/lib/api"
+import { ApiError, parseAgenda, saveMeetingAgenda } from "@/lib/api"
 import { formatTime, parseIsoDay, toIsoDate, toIsoWithOffset } from "@/lib/datetime"
-import type { Meeting } from "@/lib/types"
+import type { Meeting, ParsedAgenda } from "@/lib/types"
 
 const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/
 
@@ -118,6 +124,22 @@ function defaultValues(
   }
 }
 
+interface SpeechRecognitionEventLike {
+  results: Array<Array<{ transcript: string }>>
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start: () => void
+  stop: () => void
+  onstart: (() => void) | null
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+}
+
 /** Creates a meeting, or edits `meeting` when one is passed. */
 export function MeetingFormDialog({
   open,
@@ -137,6 +159,20 @@ export function MeetingFormDialog({
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const isEdit = !!meeting
 
+  // AI Prompt & Voice Pre-fill State
+  const [promptText, setPromptText] = useState("")
+  const [isAiParsing, setIsAiParsing] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [aiSuccessMsg, setAiSuccessMsg] = useState<string | null>(null)
+  const [parsedAgendaForMeeting, setParsedAgendaForMeeting] = useState<{
+    agenda: ParsedAgenda
+    model: string
+    prompt_version: string
+  } | null>(null)
+
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues(meeting, defaultDate, defaultStartTime),
@@ -151,10 +187,221 @@ export function MeetingFormDialog({
     formState: { errors, isSubmitting },
   } = form
 
-  // Refill the form each time it opens, so edits start from the meeting's current values.
+  // Refill the form each time it opens
   useEffect(() => {
-    if (open) reset(defaultValues(meeting, defaultDate, defaultStartTime))
+    if (open) {
+      reset(defaultValues(meeting, defaultDate, defaultStartTime))
+    }
   }, [open, meeting, defaultDate, defaultStartTime, reset])
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setPromptText("")
+      setIsAiParsing(false)
+      setIsListening(false)
+      setAiSuccessMsg(null)
+      setParsedAgendaForMeeting(null)
+      try {
+        recognitionRef.current?.stop()
+      } catch {
+        // ignore
+      }
+    }
+    onOpenChange(nextOpen)
+  }
+
+  // Voice speech-to-text handler
+  const handleToggleVoice = () => {
+    if (typeof window === "undefined") return
+
+    const win = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike
+    }
+
+    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition
+
+    if (!SpeechRecognitionClass) {
+      toast.info("Voice input is not supported in this browser. Please type your prompt.")
+      return
+    }
+
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop()
+      } catch {
+        // ignore
+      }
+      setIsListening(false)
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognitionClass()
+      recognition.continuous = false
+      recognition.interimResults = false
+      recognition.lang = navigator.language || "uk-UA"
+
+      recognition.onstart = () => {
+        setIsListening(true)
+        toast.info("Listening... speak your meeting details")
+      }
+
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        const transcript = event.results[0]?.[0]?.transcript ?? ""
+        setPromptText((prev) => (prev ? `${prev} ${transcript}` : transcript))
+      }
+
+      recognition.onerror = () => {
+        setIsListening(false)
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
+    } catch {
+      setIsListening(false)
+    }
+  }
+
+  const handleCancelAi = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsAiParsing(false)
+  }
+
+  // Parse prompt text with Amazon Bedrock LLM and pre-fill form
+  const handleParsePrompt = async () => {
+    if (!promptText.trim()) {
+      toast.error("Please enter or say meeting details first.")
+      return
+    }
+
+    setIsAiParsing(true)
+    setAiSuccessMsg(null)
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    try {
+      const todayStr = new Date().toISOString().split("T")[0]
+      const tzStr = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Kyiv"
+
+      const result = await parseAgenda(promptText, todayStr, tzStr, controller.signal)
+      const agenda = result.agenda
+
+      // 1. Title / Name
+      const meetingName =
+        agenda.title?.trim() ||
+        agenda.items?.[0]?.topic?.trim() ||
+        "Team Sync"
+      form.setValue("name", meetingName, { shouldValidate: true })
+
+      // 2. Date and Times
+      if (agenda.starts_at) {
+        try {
+          const startDateObj = new Date(agenda.starts_at)
+          if (!isNaN(startDateObj.getTime())) {
+            form.setValue("date", startDateObj, { shouldValidate: true })
+            const hh = String(startDateObj.getHours()).padStart(2, "0")
+            const mm = String(startDateObj.getMinutes()).padStart(2, "0")
+            const startHhMm = `${hh}:${mm}`
+            form.setValue("startTime", startHhMm, { shouldValidate: true })
+
+            const duration = agenda.duration_minutes || 60
+            const endDateObj = new Date(startDateObj.getTime() + duration * 60 * 1000)
+            const endHh = String(endDateObj.getHours()).padStart(2, "0")
+            const endMm = String(endDateObj.getMinutes()).padStart(2, "0")
+            form.setValue("endTime", `${endHh}:${endMm}`, { shouldValidate: true })
+          }
+        } catch {
+          // fallback
+        }
+      } else if (agenda.duration_minutes) {
+        const currentStart = form.getValues("startTime") || "10:00"
+        const [h, m] = currentStart.split(":").map(Number)
+        const totalMinutes = (h * 60 + m) + agenda.duration_minutes
+        const endH = Math.min(23, Math.floor(totalMinutes / 60))
+        const endM = totalMinutes % 60
+        form.setValue("endTime", `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`, { shouldValidate: true })
+      }
+
+      // 3. Location / Call link
+      const urlMatch = promptText.match(/(https?:\/\/[^\s]+)/)
+      if (urlMatch) {
+        form.setValue("location", urlMatch[1], { shouldValidate: true })
+      }
+
+      // 4. Participants
+      const extractedParticipants: Array<{ name: string; email: string }> = []
+      const seenNames = new Set<string>()
+
+      agenda.items?.forEach((item) => {
+        if (item.owner && !seenNames.has(item.owner.trim().toLowerCase())) {
+          seenNames.add(item.owner.trim().toLowerCase())
+          extractedParticipants.push({ name: item.owner.trim(), email: "" })
+        }
+      })
+      agenda.action_items?.forEach((action) => {
+        if (action.owner && !seenNames.has(action.owner.trim().toLowerCase())) {
+          seenNames.add(action.owner.trim().toLowerCase())
+          extractedParticipants.push({ name: action.owner.trim(), email: "" })
+        }
+      })
+
+      if (extractedParticipants.length > 0) {
+        form.setValue("participants", extractedParticipants, { shouldValidate: true })
+      }
+
+      // 5. Description from topics & action items
+      const descLines: string[] = []
+      if (agenda.items && agenda.items.length > 0) {
+        descLines.push("Agenda Topics:")
+        agenda.items.forEach((item, idx) => {
+          const ownerPart = item.owner ? ` (${item.owner}` : ""
+          const minPart = item.minutes ? `${ownerPart ? ", " : " ("}${item.minutes}m` : ""
+          const closePart = ownerPart || minPart ? ")" : ""
+          descLines.push(`${idx + 1}. ${item.topic}${ownerPart}${minPart}${closePart}`)
+        })
+      }
+      if (agenda.action_items && agenda.action_items.length > 0) {
+        if (descLines.length > 0) descLines.push("")
+        descLines.push("Action Items:")
+        agenda.action_items.forEach((act) => {
+          const ownerPart = act.owner ? `${act.owner}: ` : ""
+          const duePart = act.due ? ` (Due: ${act.due})` : ""
+          descLines.push(`- ${ownerPart}${act.task}${duePart}`)
+        })
+      }
+      if (descLines.length > 0) {
+        form.setValue("description", descLines.join("\n"), { shouldValidate: true })
+      }
+
+      setParsedAgendaForMeeting({
+        agenda,
+        model: result.model,
+        prompt_version: result.prompt_version,
+      })
+
+      setAiSuccessMsg("Meeting fields pre-filled! Review below & click Create.")
+      toast.success("AI pre-filled the meeting fields from your prompt!")
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        toast.info("AI parsing canceled.")
+      } else {
+        const msg = err instanceof Error ? err.message : "Failed to parse prompt."
+        toast.error(msg)
+      }
+    } finally {
+      setIsAiParsing(false)
+      abortControllerRef.current = null
+    }
+  }
 
   const onSubmit = handleSubmit(async (values) => {
     const participants = values.participants
@@ -178,8 +425,23 @@ export function MeetingFormDialog({
         await updateMeeting.mutateAsync({ id: meeting.id, payload })
         toast.success("Meeting updated")
       } else {
-        await createMeeting.mutateAsync(payload)
+        const created = await createMeeting.mutateAsync(payload)
         toast.success("Meeting created")
+
+        // If agenda was parsed by AI, attach it to the newly created meeting
+        if (parsedAgendaForMeeting && created?.id) {
+          try {
+            await saveMeetingAgenda(created.id, {
+              agenda: parsedAgendaForMeeting.agenda,
+              ai_suggestion: parsedAgendaForMeeting.agenda,
+              model: parsedAgendaForMeeting.model,
+              prompt_version: parsedAgendaForMeeting.prompt_version,
+            })
+            toast.success("AI agenda attached to your new meeting!")
+          } catch (agendaErr) {
+            console.warn("Could not save initial agenda:", agendaErr)
+          }
+        }
       }
       onOpenChange(false)
     } catch (error) {
@@ -205,7 +467,7 @@ export function MeetingFormDialog({
   })
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit meeting" : "New meeting"}</DialogTitle>
@@ -217,6 +479,93 @@ export function MeetingFormDialog({
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
+          {!isEdit ? (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                  <Sparkles className="size-4 text-primary" />
+                  <span>Create from Prompt (AI Assistant)</span>
+                </div>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                  Bedrock AI
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Say or paste meeting notes in natural language — AI will extract title, date, time, duration & attendees:
+              </p>
+              <div className="relative">
+                <Textarea
+                  value={promptText}
+                  onChange={(e) => {
+                    setPromptText(e.target.value)
+                    if (aiSuccessMsg) setAiSuccessMsg(null)
+                  }}
+                  placeholder="e.g.: Пн 10:00, синк по прайсингу, 45 хв. 1) нові тарифи Pro — Олена, 15 хв 2) фідбек від клієнтів — Taras"
+                  className="text-xs bg-background resize-y min-h-[64px] pr-10"
+                  disabled={isAiParsing}
+                />
+                <button
+                  type="button"
+                  onClick={handleToggleVoice}
+                  className={`absolute right-2.5 top-2.5 p-1.5 rounded-full transition-colors cursor-pointer ${
+                    isListening
+                      ? "bg-red-500 text-white animate-pulse"
+                      : "text-muted-foreground hover:text-primary hover:bg-muted"
+                  }`}
+                  title={isListening ? "Listening... click to stop" : "Say meeting prompt (Voice Input)"}
+                  aria-label="Voice input"
+                >
+                  {isListening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="text-[11px] text-muted-foreground">
+                  {aiSuccessMsg ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="size-3.5" />
+                      {aiSuccessMsg}
+                    </span>
+                  ) : (
+                    <span>The model suggests, you decide & confirm</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
+                  {isAiParsing ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={handleCancelAi}
+                      className="text-destructive hover:text-destructive h-7 text-xs cursor-pointer"
+                    >
+                      <XCircle className="size-3.5 mr-1" />
+                      Cancel
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="xs"
+                    className="gap-1.5 h-7 text-xs font-semibold cursor-pointer shadow-xs"
+                    disabled={isAiParsing || !promptText.trim()}
+                    onClick={handleParsePrompt}
+                  >
+                    {isAiParsing ? (
+                      <>
+                        <Loader2 className="size-3 animate-spin" />
+                        <span>Parsing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-3" />
+                        <span>Pre-fill Form</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
