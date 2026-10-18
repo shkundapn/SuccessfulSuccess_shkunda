@@ -66,6 +66,9 @@ MODEL_PRICING = {
     "us.amazon.nova-micro-v1:0": (0.035, 0.14),
     "us.amazon.nova-lite-v1:0": (0.06, 0.24),
     "us.amazon.nova-pro-v1:0": (0.80, 3.20),
+    "amazon.nova-micro-v1:0": (0.035, 0.14),
+    "amazon.nova-lite-v1:0": (0.06, 0.24),
+    "amazon.nova-pro-v1:0": (0.80, 3.20),
 }
 
 
@@ -218,7 +221,7 @@ def _parse_agenda_with_converse(
 
 def parse_agenda(
     text: str, today: date, tz: str, model: str | None = None
-) -> tuple[ParsedAgenda, dict[str, int]]:
+) -> tuple[ParsedAgenda, dict[str, Any]]:
     """Parse unstructured text into a validated ParsedAgenda.
 
     Uses settings.parser_model by default. Supports both Anthropic Messages API
@@ -232,18 +235,32 @@ def parse_agenda(
 
     if is_anthropic:
         try:
-            return _parse_agenda_with_anthropic(text, today, tz, chosen_model)
+            agenda, usage = _parse_agenda_with_anthropic(text, today, tz, chosen_model)
+            usage["model"] = chosen_model
+            return agenda, usage
         except Exception as e:
             err_str = str(e)
-            # If Anthropic access is not enabled or throttled, fall back to Nova Lite
-            if "permission_error" in err_str or "AccessDeniedException" in err_str:
+            # If Anthropic access is not enabled, throttled, or missing use case form,
+            # fall back to Nova Lite
+            if (
+                "permission_error" in err_str
+                or "AccessDeniedException" in err_str
+                or "not_found_error" in err_str
+                or "use case details" in err_str
+                or "does not exist" in err_str
+            ):
                 log.warning(
-                    "Anthropic Claude model '%s' access not enabled in AWS account. "
-                    "Falling back to Bedrock Converse API with 'us.amazon.nova-lite-v1:0'.",
+                    "Anthropic Claude model '%s' access failed (%s). "
+                    "Falling back to Bedrock Converse API with 'amazon.nova-lite-v1:0'.",
                     chosen_model,
+                    err_str,
                 )
-                fallback_model = "us.amazon.nova-lite-v1:0"
-                return _parse_agenda_with_converse(text, today, tz, fallback_model)
+                fallback_model = "amazon.nova-lite-v1:0"
+                agenda, usage = _parse_agenda_with_converse(text, today, tz, fallback_model)
+                usage["model"] = fallback_model
+                return agenda, usage
             raise
 
-    return _parse_agenda_with_converse(text, today, tz, chosen_model)
+    agenda, usage = _parse_agenda_with_converse(text, today, tz, chosen_model)
+    usage["model"] = chosen_model
+    return agenda, usage

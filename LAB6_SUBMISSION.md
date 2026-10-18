@@ -9,7 +9,7 @@
 
 ## 1. Commit & Repository Artifacts
 
-- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/0e8696230e0e727c602da4d9ceb6e26346c3d640](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/0e8696230e0e727c602da4d9ceb6e26346c3d640)
+- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/1eed84e38fe22d1ad1ed625c2fa03d70c2b1569c](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/1eed84e38fe22d1ad1ed625c2fa03d70c2b1569c)
 
 This implementation adds:
 1. **Core Parser**: `backend/app/ai/agenda.py` (Pydantic schema `ParsedAgenda`, `RECORD_AGENDA` tool, system prompt with date/timezone context, dual-engine fallback).
@@ -27,8 +27,14 @@ This implementation adds:
 
 ## 2. CloudWatch Log Line (Submission Item 4)
 
-Real structured JSON log line captured from CloudWatch log group `/aws/lambda/spry-shkunda-agenda-parser`:
+Real structured JSON log lines captured from CloudWatch log group `/aws/lambda/spry-shkunda-agenda-parser`:
 
+**Production Run with Amazon Nova Lite (`amazon.nova-lite-v1:0` — fastest & lowest cost)**:
+```json
+[INFO]	2026-10-18T11:06:14.902Z	adf74c46-ccff-4643-a7ca-3a55084931ed	{"event": "agenda_parsed", "user": "74f8a448-2001-7000-4744-df44d0abc178", "model": "amazon.nova-lite-v1:0", "prompt_version": "agenda-v1", "input_tokens": 1083, "output_tokens": 629, "latency_ms": 4525, "cost_usd": 0.004228}
+```
+
+**Alternative Run with Claude Opus 5.5 (`anthropic.claude-opus-5-5`)**:
 ```json
 [INFO] 2026-10-18T10:42:18.639Z 23c869d4-8443-4955-b31e-b3c615ca40b1 {"event": "agenda_parsed", "user": "74f8a448-2001-7000-4744-df44d0abc178", "model": "anthropic.claude-opus-5-5", "prompt_version": "agenda-v1", "input_tokens": 1083, "output_tokens": 563, "latency_ms": 12441, "cost_usd": 0.015592}
 ```

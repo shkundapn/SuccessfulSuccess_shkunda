@@ -47,7 +47,7 @@ Parameters:
 
   ParserModel:
     Type: String
-    Default: anthropic.claude-haiku-5-5
+    Default: amazon.nova-lite-v1:0
     Description: Default foundation model ID on Amazon Bedrock.
 
   AppTimezone:

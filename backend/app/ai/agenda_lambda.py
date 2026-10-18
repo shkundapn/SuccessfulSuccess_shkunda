@@ -163,13 +163,14 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         }
 
     latency_ms = int((time.monotonic() - started) * 1000)
-    cost = cost_usd(model_val, usage)
+    actual_model = usage.get("model", model_val)
+    cost = cost_usd(actual_model, usage)
 
     # Emit structured JSON log for CloudWatch (Submission item 4)
     log_payload = {
         "event": "agenda_parsed",
         "user": user.sub,
-        "model": model_val,
+        "model": actual_model,
         "prompt_version": PROMPT_VERSION,
         "input_tokens": usage.get("input_tokens", 0),
         "output_tokens": usage.get("output_tokens", 0),
@@ -184,7 +185,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "body": json.dumps(
             {
                 "agenda": agenda.model_dump(mode="json"),
-                "model": model_val,
+                "model": actual_model,
                 "prompt_version": PROMPT_VERSION,
                 "usage": usage,
                 "cost_usd": cost,
