@@ -5,11 +5,6 @@ import {
 }
 
 import {
-  to = aws_cognito_user_pool_client.client
-  id = "us-east-1_dLIUUyTHp/6s22d1p7brc05pss5gpkuvalnv"
-}
-
-import {
   to = aws_cognito_user_pool_domain.domain
   id = "spry-shkunda-783216615378"
 }

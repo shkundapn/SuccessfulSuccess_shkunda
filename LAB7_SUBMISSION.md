@@ -147,25 +147,25 @@ Terraform has compared your real infrastructure against your configuration and f
 ## 4. Architectural Analysis & Questions (Part 2, Steps 6 & 7)
 
 ### Q1: After Step 3, how many resources did you import, and how many did you let Terraform re-create? Why was each re-creation safe?
-- **Imported (18 resources)**:
+- **Imported (17 core stateful resources)**:
   1. `aws_cognito_user_pool.pool` (`us-east-1_dLIUUyTHp`) — Preserves all existing registered user accounts, passwords, and sub IDs.
-  2. `aws_cognito_user_pool_client.client` (`6s22d1p7brc05pss5gpkuvalnv`) — Keeps client IDs constant so browser logins and tokens remain valid.
-  3. `aws_cognito_user_pool_domain.domain` (`spry-shkunda-783216615378`) — Preserves Cognito OAuth endpoints.
-  4. `aws_cognito_identity_provider.google[0]` — Preserves federated Google sign-in configuration.
-  5. `aws_s3_bucket.reports` (`spry-shkunda-reports-783216615378`) — Preserves all generated weekly CSV reports (`2026-W39.csv`, `2026-W40.csv`, etc.).
-  6. `aws_sqs_queue.report_queue` & `aws_sqs_queue.report_dlq` — Preserves queues and in-flight messages.
-  7. `aws_scheduler_schedule.weekly` (`default/spry-shkunda-weekly-report`) — Preserves the EventBridge Monday 07:00 trigger.
-  8. `aws_lambda_function.builder`, `aws_lambda_function.mailer`, `aws_lambda_function.agenda_parser`, `aws_lambda_function.pre_sign_up` — Preserves containerized/zip execution handlers.
-  9. `aws_lambda_function_url.agenda_parser` — Preserves the exact public URL endpoint (`https://jevzoaxlk3frnqb5n2xgmsx5k40inznk.lambda-url.us-east-1.on.aws`).
-  10. `aws_cloudwatch_log_group.builder`, `aws_cloudwatch_log_group.mailer`, `aws_cloudwatch_log_group.agenda_parser` — Preserves historical evaluation and audit logs.
-  11. `aws_vpc_endpoint.s3` — Preserves the existing S3 Gateway VPC endpoint route in route table `rtb-038ca8dd18c11f4c6`.
-  12. `aws_lambda_event_source_mapping.builder` (`2e23fca8-f49b-4ff0-ac00-eba9901b2327`) — Preserves SQS to Lambda report trigger mapping.
-- **Re-created (Stateless child attachments & permissions)**:
+  2. `aws_cognito_user_pool_domain.domain` (`spry-shkunda-783216615378`) — Preserves Cognito OAuth endpoints.
+  3. `aws_cognito_identity_provider.google[0]` — Preserves federated Google sign-in configuration.
+  4. `aws_s3_bucket.reports` (`spry-shkunda-reports-783216615378`) — Preserves all generated weekly CSV reports (`2026-W39.csv`, `2026-W40.csv`, etc.).
+  5. `aws_sqs_queue.report_queue` & `aws_sqs_queue.report_dlq` — Preserves queues and in-flight messages.
+  6. `aws_scheduler_schedule.weekly` (`default/spry-shkunda-weekly-report`) — Preserves the EventBridge Monday 07:00 trigger.
+  7. `aws_lambda_function.builder`, `aws_lambda_function.mailer`, `aws_lambda_function.agenda_parser`, `aws_lambda_function.pre_sign_up` — Preserves containerized/zip execution handlers.
+  8. `aws_lambda_function_url.agenda_parser` — Preserves the exact public URL endpoint (`https://jevzoaxlk3frnqb5n2xgmsx5k40inznk.lambda-url.us-east-1.on.aws`).
+  9. `aws_cloudwatch_log_group.builder`, `aws_cloudwatch_log_group.mailer`, `aws_cloudwatch_log_group.agenda_parser` — Preserves historical evaluation and audit logs.
+  10. `aws_vpc_endpoint.s3` — Preserves the existing S3 Gateway VPC endpoint route in route table `rtb-038ca8dd18c11f4c6`.
+  11. `aws_lambda_event_source_mapping.builder` (`2e23fca8-f49b-4ff0-ac00-eba9901b2327`) — Preserves SQS to Lambda report trigger mapping.
+- **Created / Re-created (Stateless child attachments & permissions)**:
+  - `aws_cognito_user_pool_client.client` (`spry-shkunda-web`): Created clean with PKCE code flow, token validity units, and Google IdP binding (since the legacy client was deleted during CloudFormation stack cleanup).
   - `aws_lambda_permission.*` (`AllowCognitoInvoke`, `AllowS3Invoke`, `FunctionUrlAllowPublicAccess`)
   - `aws_s3_bucket_notification.reports`
   - `aws_s3_bucket_public_access_block.reports`
   - `aws_s3_bucket_lifecycle_configuration.reports`
-  - *Why re-creation was safe*: These child resources contain zero persistent state or data. Replacing an IAM permission or S3 lifecycle rule takes <1 second, causes no data loss, and breaks the circular dependency present in the legacy CloudFormation template.
+  - *Why re-creation was safe*: These child resources contain zero persistent state or data. Replacing an IAM permission, S3 lifecycle rule, or recreating the public OAuth app client takes <1 second, causes no data loss, and breaks the circular dependency present in the legacy CloudFormation template.
 
 ### Q2: Find one attribute in your Terraform code that forces replacement of the user pool or the reports bucket if you change it. What would happen to the users or the reports?
 - **User Pool**: Changing the `name` attribute (`name = "${var.project_name}-users"`) or altering unmodifiable schema attributes (`username_attributes = ["email"]`).
