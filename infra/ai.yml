@@ -1,3 +1,7 @@
+# ==============================================================================
+# DEPRECATED: Migrated to Terraform (infra/ai.tf) in Lab 7.
+# Retain policies ensure existing Agenda Parser Lambda function and Function URL are preserved.
+# ==============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   Spry — Paste an agenda LLM parser service on Amazon Bedrock.
@@ -6,11 +10,11 @@ Description: >
 Parameters:
   ProjectName:
     Type: String
-    Description: Prefix applied to resource names and the value of the PROJECT_NAME tag.
+    Default: spry-shkunda
 
   ImageUri:
     Type: String
-    Description: Backend container image URI in ECR (by digest).
+    Default: ""
 
   Architecture:
     Type: String
@@ -20,45 +24,40 @@ Parameters:
   MemorySize:
     Type: Number
     Default: 512
-    Description: Lambda memory size in MB (512 MB per lab specification).
 
   Timeout:
     Type: Number
     Default: 30
-    Description: Lambda timeout in seconds (30 s per lab specification).
 
   CognitoUserPoolId:
     Type: String
-    Description: Cognito user pool ID for JWT verification.
+    Default: ""
 
   CognitoClientId:
     Type: String
-    Description: Cognito app client ID.
+    Default: ""
 
   CognitoJwks:
     Type: String
     Default: ""
-    Description: Optional static JWKS keys (fetched dynamically over internet if empty).
 
   CorsOrigins:
     Type: String
     Default: "*"
-    Description: Comma-separated list of allowed web origins for CORS.
 
   ParserModel:
     Type: String
     Default: amazon.nova-lite-v1:0
-    Description: Default foundation model ID on Amazon Bedrock.
 
   AppTimezone:
     Type: String
     Default: Europe/Kyiv
-    Description: Application default timezone for relative date calculations.
 
 Resources:
-
   AgendaParserRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -89,6 +88,8 @@ Resources:
 
   LogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       LogGroupName: !Sub "/aws/lambda/${ProjectName}-agenda-parser"
       RetentionInDays: 7
@@ -98,6 +99,8 @@ Resources:
 
   AgendaParserFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub "${ProjectName}-agenda-parser"
       Description: Paste an agenda parser calling Amazon Bedrock outside VPC
@@ -130,6 +133,8 @@ Resources:
 
   FunctionUrl:
     Type: AWS::Lambda::Url
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TargetFunctionArn: !GetAtt AgendaParserFunction.Arn
       AuthType: NONE
@@ -137,6 +142,8 @@ Resources:
 
   FunctionUrlPermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref AgendaParserFunction
       Action: lambda:InvokeFunctionUrl
@@ -145,6 +152,8 @@ Resources:
 
   FunctionUrlInvokePermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref AgendaParserFunction
       Action: lambda:InvokeFunction
@@ -153,13 +162,8 @@ Resources:
 
 Outputs:
   AgendaParserUrl:
-    Description: Public function URL for the agenda parser (without trailing slash)
     Value: !Sub ["https://${Host}", {Host: !Select [2, !Split ["/", !GetAtt FunctionUrl.FunctionUrl]]}]
-
   FunctionName:
-    Description: Lambda function name
     Value: !Ref AgendaParserFunction
-
   LogGroupName:
-    Description: CloudWatch log group
     Value: !Ref LogGroup

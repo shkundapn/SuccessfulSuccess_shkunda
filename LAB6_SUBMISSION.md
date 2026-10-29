@@ -4,6 +4,7 @@
 - **Live Deployed App**: [https://successfulsuccess.pp.ua](https://successfulsuccess.pp.ua)
 - **Agenda Parser Function URL**: `https://jevzoaxlk3frnqb5n2xgmsx5k40inznk.lambda-url.us-east-1.on.aws`
 - **Backend API**: `https://omp54u5dee63qjrnyqz74wo42y0brxmp.lambda-url.us-east-1.on.aws`
+- **Demo Screen Recording (MP4)**: [Google Drive Video Link](https://drive.google.com/file/d/1spRxoAscu30zcNUqMD-j_Bcp5f-0tK6Z/view?usp=drive_link)
 
 ---
 

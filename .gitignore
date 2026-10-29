@@ -16,3 +16,13 @@ next-env.d.ts
 .idea/
 .DS_Store
 .neon
+
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+infra/*.zip

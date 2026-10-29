@@ -30,13 +30,13 @@ The backend applies migrations on start.
 
 Every page except the login page, and every `/api/v1` endpoint, needs a
 signed-in user, and each user sees only their own meetings. Sign-in is an AWS
-Cognito user pool (`infra/auth.yml`): email + password, and Google when it is
+Cognito user pool managed via Terraform (`infra/auth.tf`): email + password, and Google when it is
 configured. Even for local development the pool lives in AWS (it is free at
 this scale):
 
 ```bash
-make aws-deploy-auth   # create/update the user pool; allows http://localhost:$FRONTEND_PORT/
-make aws-auth-env      # prints COGNITO_* lines: paste them into .env
+make infra-plan        # preview Terraform plan (remote HCP Terraform backend)
+make aws-auth-env      # prints COGNITO_* lines from Terraform outputs: paste them into .env
 docker compose up -d   # restart so the API and the frontend pick them up
 ```
 
@@ -354,12 +354,31 @@ and a meeting is listed if it *overlaps* the day — so a 23:00–00:30 meeting 
 on both days. The UI reads the wall-clock time straight from the offset the API
 sent, so every client shows the same time as the day it was listed under.
 
+## Infrastructure as Code (Terraform & HCP Terraform)
+
+In Lab 7, project infrastructure for Authentication (Cognito), Reports (S3 + SQS + Lambdas + EventBridge), and AI Agenda Parser (Lambda Function URL + Bedrock) has been migrated from CloudFormation to **Terraform (HCL)** managed centrally via **HCP Terraform**:
+
+- **HCP Organization**: `successfulSuccessProject`
+- **HCP Workspace**: `SuccessfulSuccess_shkunda` (Working Directory: `infra/`)
+- **Remote Execution & State**: State is locked and maintained remotely in HCP Terraform with automatic run triggers on GitHub push/merge.
+- **Dynamic Credentials / OIDC**: No long-lived AWS keys stored in repository files.
+
+### Common Terraform targets
+
+```bash
+make infra-init       # Initialize HCP Terraform cloud integration
+make infra-fmt        # Check HCL formatting style
+make infra-validate   # Validate syntax and references without touching AWS
+make infra-plan       # Run speculative remote plan against HCP Terraform
+```
+
 ## Layout
 
 ```
 backend/    FastAPI app (api → services → repositories → models), Alembic, tests
 frontend/   Next.js app, shadcn/ui primitives in components/ui
-infra/      CloudFormation templates behind the aws-* targets
+infra/      Terraform HCL (auth.tf, reports.tf, ai.tf, versions.tf) & base templates
+docs/adr/   Architecture Decision Records (0006 Bedrock AI, 0007 Terraform)
 docker-compose.yml
 ```
 
