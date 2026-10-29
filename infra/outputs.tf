@@ -26,7 +26,7 @@ output "GoogleRedirectUri" {
 
 output "GoogleEnabled" {
   description = "Whether Google authentication is enabled"
-  value       = local.google_client_id != "" ? "true" : "false"
+  value       = nonsensitive(local.google_client_id != "" ? "true" : "false")
 }
 
 # --- Reports Outputs ----------------------------------------------------------
