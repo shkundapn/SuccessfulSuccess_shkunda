@@ -40,4 +40,6 @@ locals {
   security_group_ids = length(var.security_group_ids) > 0 ? var.security_group_ids : data.aws_security_groups.backend_fn.ids
   image_uri          = var.image_uri != "" ? var.image_uri : data.aws_lambda_function.backend.image_uri
   database_url       = var.database_url != "" ? var.database_url : try(data.aws_lambda_function.backend.environment[0].variables["DATABASE_URL"], "")
+  google_client_id   = var.GOOGLE_CLIENT_ID != "" ? var.GOOGLE_CLIENT_ID : var.google_client_id
+  google_client_secret = var.GOOGLE_CLIENT_SECRET != "" ? var.GOOGLE_CLIENT_SECRET : var.google_client_secret
 }

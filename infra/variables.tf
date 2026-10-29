@@ -22,11 +22,24 @@ variable "google_client_id" {
   description = "Google OAuth 2.0 Web Client ID."
 }
 
+variable "GOOGLE_CLIENT_ID" {
+  type        = string
+  default     = ""
+  description = "Google OAuth 2.0 Web Client ID (uppercase alias from HCP Terraform)."
+}
+
 variable "google_client_secret" {
   type        = string
   default     = ""
   sensitive   = true
   description = "Google OAuth 2.0 Client Secret (sensitive, passed via HCP Terraform workspace)."
+}
+
+variable "GOOGLE_CLIENT_SECRET" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Google OAuth 2.0 Client Secret (uppercase alias from HCP Terraform)."
 }
 
 variable "recipient_email" {

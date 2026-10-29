@@ -42,7 +42,7 @@ import {
 
 import {
   to = aws_scheduler_schedule.weekly
-  id = "spry-shkunda-weekly-report"
+  id = "default/spry-shkunda-weekly-report"
 }
 
 import {

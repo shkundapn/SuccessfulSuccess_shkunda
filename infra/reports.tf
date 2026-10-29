@@ -57,6 +57,7 @@ resource "aws_iam_role_policy" "scheduler_sqs" {
 
 resource "aws_scheduler_schedule" "weekly" {
   name                         = "${var.project_name}-weekly-report"
+  group_name                   = "default"
   description                  = "Weekly meetings report trigger (Every Monday at 07:00 Kyiv time)"
   schedule_expression          = "cron(0 7 ? * MON *)"
   schedule_expression_timezone = var.app_timezone

@@ -13,7 +13,7 @@
 
 ## 1. Commit & Repository Artifacts (Submission Item 1)
 
-- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/main](https://github.com/shkundapn/SuccessfulSuccess_shkunda)
+- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/8e93b8f](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/8e93b8f) (`8e93b8f`)
 
 ### Files Modified and Added in `infra/`:
 1. `infra/versions.tf`:
