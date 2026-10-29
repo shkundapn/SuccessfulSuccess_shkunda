@@ -26,6 +26,11 @@ import {
 
 # --- Reports Imports ----------------------------------------------------------
 import {
+  to = aws_vpc_endpoint.s3
+  id = local.s3_vpc_endpoint_id
+}
+
+import {
   to = aws_s3_bucket.reports
   id = "spry-shkunda-reports-783216615378"
 }
@@ -53,6 +58,11 @@ import {
 import {
   to = aws_lambda_function.builder
   id = "spry-shkunda-report-builder"
+}
+
+import {
+  to = aws_lambda_event_source_mapping.builder
+  id = "2e23fca8-f49b-4ff0-ac00-eba9901b2327"
 }
 
 import {

@@ -114,6 +114,12 @@ variable "image_uri" {
   description = "Backend container image URI. If empty, automatically read from backend Lambda."
 }
 
+variable "s3_vpc_endpoint_id" {
+  type        = string
+  default     = ""
+  description = "Existing S3 Gateway VPC Endpoint ID (auto-discovered if not provided)."
+}
+
 variable "database_url" {
   type        = string
   default     = ""

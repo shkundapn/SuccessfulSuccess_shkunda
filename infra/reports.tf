@@ -9,6 +9,12 @@ resource "aws_vpc_endpoint" "s3" {
     Name         = "${var.project_name}-s3-endpoint"
     PROJECT_NAME = var.project_name
   }
+
+  lifecycle {
+    ignore_changes = [
+      route_table_ids,
+    ]
+  }
 }
 
 # --- SQS Queues ---------------------------------------------------------------

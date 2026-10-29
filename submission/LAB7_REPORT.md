@@ -13,7 +13,16 @@
 
 ## 1. Commit & Repository Artifacts (Submission Item 1)
 
-- **Commit Link**: [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commits/main](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commits/main)
+- **Complete Lab 7 Changeset (Compare View across all patches)**:  
+  👉 [https://github.com/shkundapn/SuccessfulSuccess_shkunda/compare/1cb2bf5...main](https://github.com/shkundapn/SuccessfulSuccess_shkunda/compare/1cb2bf5...main)
+- **Latest Commit on `main`**:  
+  👉 [https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/fea44a2](https://github.com/shkundapn/SuccessfulSuccess_shkunda/commit/fea44a2) (`fea44a2`)
+- **Full Repository Tree**:  
+  👉 [https://github.com/shkundapn/SuccessfulSuccess_shkunda/tree/main](https://github.com/shkundapn/SuccessfulSuccess_shkunda/tree/main)
+
+> [!NOTE]
+> **Frontend & Full Stack Context**:
+> The Next.js frontend application is located in [`frontend/`](https://github.com/shkundapn/SuccessfulSuccess_shkunda/tree/main/frontend) and is deployed live to **[https://successfulsuccess.pp.ua](https://successfulsuccess.pp.ua)**. In Lab 7, the infrastructure templates (`auth`, `reports`, `ai`) were migrated to Terraform in `infra/` without altering the frontend code, preserving all Cognito authentication integrations and API connectivity.
 
 ### Files Modified and Added in `infra/`:
 1. `infra/versions.tf`:
@@ -138,17 +147,19 @@ Terraform has compared your real infrastructure against your configuration and f
 ## 4. Architectural Analysis & Questions (Part 2, Steps 6 & 7)
 
 ### Q1: After Step 3, how many resources did you import, and how many did you let Terraform re-create? Why was each re-creation safe?
-- **Imported (16 core stateful resources)**:
+- **Imported (18 resources)**:
   1. `aws_cognito_user_pool.pool` (`us-east-1_dLIUUyTHp`) — Preserves all existing registered user accounts, passwords, and sub IDs.
   2. `aws_cognito_user_pool_client.client` (`6s22d1p7brc05pss5gpkuvalnv`) — Keeps client IDs constant so browser logins and tokens remain valid.
   3. `aws_cognito_user_pool_domain.domain` (`spry-shkunda-783216615378`) — Preserves Cognito OAuth endpoints.
   4. `aws_cognito_identity_provider.google[0]` — Preserves federated Google sign-in configuration.
   5. `aws_s3_bucket.reports` (`spry-shkunda-reports-783216615378`) — Preserves all generated weekly CSV reports (`2026-W39.csv`, `2026-W40.csv`, etc.).
   6. `aws_sqs_queue.report_queue` & `aws_sqs_queue.report_dlq` — Preserves queues and in-flight messages.
-  7. `aws_scheduler_schedule.weekly` — Preserves the EventBridge Monday 07:00 trigger.
+  7. `aws_scheduler_schedule.weekly` (`default/spry-shkunda-weekly-report`) — Preserves the EventBridge Monday 07:00 trigger.
   8. `aws_lambda_function.builder`, `aws_lambda_function.mailer`, `aws_lambda_function.agenda_parser`, `aws_lambda_function.pre_sign_up` — Preserves containerized/zip execution handlers.
   9. `aws_lambda_function_url.agenda_parser` — Preserves the exact public URL endpoint (`https://jevzoaxlk3frnqb5n2xgmsx5k40inznk.lambda-url.us-east-1.on.aws`).
   10. `aws_cloudwatch_log_group.builder`, `aws_cloudwatch_log_group.mailer`, `aws_cloudwatch_log_group.agenda_parser` — Preserves historical evaluation and audit logs.
+  11. `aws_vpc_endpoint.s3` — Preserves the existing S3 Gateway VPC endpoint route in route table `rtb-038ca8dd18c11f4c6`.
+  12. `aws_lambda_event_source_mapping.builder` (`2e23fca8-f49b-4ff0-ac00-eba9901b2327`) — Preserves SQS to Lambda report trigger mapping.
 - **Re-created (Stateless child attachments & permissions)**:
   - `aws_lambda_permission.*` (`AllowCognitoInvoke`, `AllowS3Invoke`, `FunctionUrlAllowPublicAccess`)
   - `aws_s3_bucket_notification.reports`

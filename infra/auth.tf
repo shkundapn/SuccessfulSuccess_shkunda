@@ -85,6 +85,12 @@ resource "aws_cognito_user_pool" "pool" {
   tags = {
     PROJECT_NAME = var.project_name
   }
+
+  lifecycle {
+    ignore_changes = [
+      schema,
+    ]
+  }
 }
 
 resource "aws_lambda_permission" "pre_sign_up" {
